@@ -31,11 +31,20 @@ from .db_browser import (
     topic_choices,
 )
 from .kg_panel import (
+    BULK_POLICY_CHOICES,
+    generate_bulk_from_db,
     generate_batch_from_db,
     generate_selected_from_db,
     kg_config_summary,
     list_kg_records,
     refresh_db_ready,
+)
+from .intel_dashboard import (
+    CANDIDATE_HEADERS,
+    GAP_HEADERS,
+    HEALTH_HEADERS,
+    SOURCE_HEADERS,
+    refresh_intel_dashboard,
 )
 from .memory_browser import (
     load_playbook,
@@ -231,6 +240,67 @@ def build_app() -> gr.Blocks:
             )
             load_btn.click(_load_latest, outputs=[summary_box, items_table, state])
 
+        with gr.Tab("情报态势"):
+            gr.Markdown(
+                "## 情报库覆盖与质量态势\n"
+                "覆盖率按 **Core 主题 × 必需证据通道** 计算，并综合相关性、"
+                "来源可信度、事件唯一性和时效衰减。Extended 主题仅用于趋势发现，"
+                "不进入 Core 覆盖率分母。"
+            )
+            dashboard_refresh = gr.Button("刷新统计", variant="primary")
+            dashboard_status = gr.Textbox(label="统计状态", interactive=False)
+            dashboard_kpis = gr.HTML(label="核心指标")
+
+            with gr.Row():
+                coverage_plot = gr.Plot(label="Core 主题覆盖矩阵", scale=2)
+                health_table = gr.Dataframe(
+                    headers=HEALTH_HEADERS,
+                    label="覆盖全面性与数据健康",
+                    interactive=False,
+                    scale=1,
+                )
+
+            gap_table = gr.Dataframe(
+                headers=GAP_HEADERS,
+                label="开放覆盖缺口（按优先级排序）",
+                interactive=False,
+                wrap=True,
+            )
+
+            topic_plot = gr.Plot(label="Core 主题有效情报分布")
+            source_table = gr.Dataframe(
+                headers=SOURCE_HEADERS,
+                label="来源质量与采集效率",
+                interactive=False,
+                wrap=True,
+            )
+
+            timeline_plot = gr.Plot(label="近 12 周有效情报趋势")
+
+            with gr.Row():
+                extended_plot = gr.Plot(label="Extended 主题趋势")
+                candidate_table = gr.Dataframe(
+                    headers=CANDIDATE_HEADERS,
+                    label="待审核候选主题",
+                    interactive=False,
+                    wrap=True,
+                )
+
+            dashboard_outputs = [
+                dashboard_status,
+                dashboard_kpis,
+                coverage_plot,
+                health_table,
+                gap_table,
+                topic_plot,
+                source_table,
+                timeline_plot,
+                extended_plot,
+                candidate_table,
+            ]
+            dashboard_refresh.click(refresh_intel_dashboard, outputs=dashboard_outputs)
+            app.load(refresh_intel_dashboard, outputs=dashboard_outputs)
+
         with gr.Tab("Trace replay"):
             rid = gr.Textbox(label="run_id")
             replay_btn = gr.Button("Load trace JSONL")
@@ -259,7 +329,13 @@ def build_app() -> gr.Blocks:
                 kg_limit = gr.Number(value=50, label="Query limit", precision=0)
             with gr.Row():
                 refresh_ready = gr.Button("Refresh kg_ready from database", variant="secondary")
-                batch_limit = gr.Number(value=10, label="Batch size", precision=0)
+                batch_limit = gr.Number(
+                    value=10,
+                    label="Small batch size",
+                    precision=0,
+                    minimum=1,
+                    maximum=50,
+                )
             kg_ready_msg = gr.Textbox(label="Ready list status", interactive=False)
             item_dd = gr.Dropdown(label="KG-ready item", choices=[], allow_custom_value=True)
             with gr.Row():
@@ -280,12 +356,89 @@ def build_app() -> gr.Blocks:
                 generate_selected_from_db,
                 inputs=[item_dd],
                 outputs=[kg_out, kg_table],
+                concurrency_limit=1,
+                concurrency_id="ctinexus_generation",
             )
             batch_btn.click(
                 generate_batch_from_db,
                 inputs=[kg_run, kg_topic, kg_source, batch_limit],
                 outputs=[kg_out, kg_table],
+                concurrency_limit=1,
+                concurrency_id="ctinexus_generation",
             )
+
+            with gr.Accordion("大批量生成子 KG", open=False):
+                gr.Markdown(
+                    "按上方的 run/topic/source 条件扫描情报并顺序生成 item 子 KG。"
+                    "每条完成后立即落库；默认跳过已经成功的项并重试失败项，因此任务"
+                    "中断后可以再次启动续跑。停止操作会在当前模型调用返回后生效。"
+                )
+                with gr.Row():
+                    bulk_scan_limit = gr.Number(
+                        value=1000,
+                        label="最多扫描情报数",
+                        precision=0,
+                        minimum=1,
+                        maximum=10000,
+                    )
+                    bulk_max_items = gr.Number(
+                        value=100,
+                        label="本次最多生成数",
+                        precision=0,
+                        minimum=1,
+                        maximum=1000,
+                    )
+                    bulk_policy = gr.Dropdown(
+                        choices=BULK_POLICY_CHOICES,
+                        value="retry_failed",
+                        label="已有 KG 处理策略",
+                    )
+                with gr.Row():
+                    bulk_start = gr.Button("开始大批量生成", variant="primary")
+                    bulk_stop = gr.Button("停止大批量任务", variant="stop")
+                bulk_out = gr.Code(label="大批量任务进度", language="json")
+                bulk_table = gr.Dataframe(
+                    headers=[
+                        "item_id",
+                        "status",
+                        "triplets",
+                        "entities",
+                        "excluded",
+                        "error",
+                        "path",
+                    ],
+                    label="最近 100 条处理结果",
+                    interactive=False,
+                    wrap=True,
+                )
+                bulk_event = bulk_start.click(
+                    generate_bulk_from_db,
+                    inputs=[
+                        kg_run,
+                        kg_topic,
+                        kg_source,
+                        bulk_scan_limit,
+                        bulk_max_items,
+                        bulk_policy,
+                    ],
+                    outputs=[bulk_out, bulk_table],
+                    concurrency_limit=1,
+                    concurrency_id="ctinexus_generation",
+                    show_progress="minimal",
+                )
+                bulk_stop.click(
+                    lambda: json.dumps(
+                        {
+                            "status": "cancel_requested",
+                            "message": "当前模型调用返回后停止；已完成记录均已落库。",
+                        },
+                        ensure_ascii=False,
+                        indent=2,
+                    ),
+                    outputs=[bulk_out],
+                    cancels=[bulk_event],
+                    queue=False,
+                )
             app.load(kg_config_summary, outputs=[kg_cfg_box])
 
         with gr.Tab("Database"):

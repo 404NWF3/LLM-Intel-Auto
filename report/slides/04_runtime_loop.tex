@@ -1,0 +1,178 @@
+\section{运行循环、工具与安全边界}
+
+\begin{frame}[fragile]{最重要的模式边界：adaptive 只属于 incremental}
+\begin{lstlisting}
+# backend/intel_agent/engine/controller.py:109
+adaptive = (
+    isinstance(mode, IncrementalCollectionMode)
+    and incremental_strategy() == "adaptive"
+)
+\end{lstlisting}
+
+\begin{columns}[T,onlytextwidth]
+\column{0.48\textwidth}
+\begin{block}{full/bootstrap}
+仍可调用 SDK agent 和 source tools，但 coverage、query fallback、stall 与停止采用 legacy quota 体系；不加载全局 CorpusGap。
+\end{block}
+\column{0.48\textwidth}
+\begin{block}{incremental/adaptive}
+加载全局 corpus、checkpoint、历史 outcome 与 playbook；候选受 CorpusGap 驱动并由 UCB 选 portfolio。
+\end{block}
+\end{columns}
+
+\begin{alertblock}{对 latest run 的解释}
+full 的 \pathcode{corpus_gaps=[]} 是设计结果，不是“所有有效证据单元已满足”。
+\end{alertblock}
+\end{frame}
+
+\begin{frame}{full 与 adaptive：复用底层，但控制语义不同}
+\scriptsize
+\begin{tabularx}{\textwidth}{p{0.20\textwidth} X X}
+\toprule
+维度 & full/bootstrap & incremental/adaptive \\
+\midrule
+历史状态 & 本次 run 的 item 与 quota & 全局 corpus + 历史 outcomes + checkpoints \\
+覆盖模型 & 每个 Core item count 配额，默认 3 & 34 个 topic-channel 有效证据单元 \\
+SDK 会话 & 每轮一个隔离 one-off session & 连续 \pathcode{ClaudeSDKClient}，支持 resume \\
+query 选择 & agent proposal + legacy fallback & agent 候选 + Python 验证 + UCB portfolio \\
+停止 & critic 可决定，受 max/stall/open gap 保护 & max/budget/timeout/saturated 确定性决定 \\
+失败降级 & 本轮规则 fallback & resume -> fresh -> whole-run legacy fallback \\
+持久记忆 & 可 recall/harvest playbook & recall + 跨 run reward/history 更完整 \\
+\bottomrule
+\end{tabularx}
+\end{frame}
+
+\begin{frame}{一轮执行：Monitor - Analyze - Plan - Execute - Learn}
+\centering
+\begin{tikzpicture}[
+  n/.style={draw,rounded corners=2pt,minimum width=2.25cm,minimum height=0.8cm,align=center,font=\scriptsize,thick},
+  a/.style={-{Latex[length=1.7mm]},thick,Navy}
+]
+\node[n,fill=SoftBlue] (ctx) at (0,2.2) {1. build context\\recall playbook};
+\node[n,fill=SoftBlue] (prompt) at (3.3,1.2) {2. render digest\\system prompt};
+\node[n,fill=SoftAmber] (plan) at (3.3,-0.7) {3. candidate/query\\score/approve};
+\node[n,fill=SoftGreen] (exec) at (0,-1.7) {4. source tools\\parse/dedup};
+\node[n,fill=SoftGreen] (measure) at (-3.3,-0.7) {5. relevance\\merge/gaps};
+\node[n,fill=SoftAmber] (critic) at (-3.3,1.2) {6. critic/stop\\checkpoint/reward};
+\draw[a] (ctx)--(prompt);\draw[a] (prompt)--(plan);\draw[a] (plan)--(exec);\draw[a] (exec)--(measure);\draw[a] (measure)--(critic);\draw[a] (critic)--(ctx);
+\node[draw,dashed,rounded corners,fit=(ctx)(prompt)(plan)(exec)(measure)(critic),inner sep=8pt,label={[font=\scriptsize,text=Slate]below:Blackboard 是 Knowledge；trace 记录每个状态转换}] {};
+\end{tikzpicture}
+
+\smallsource{controller 主循环；理论参照 MAPE-K \cite{kephart2003autonomic} 与推理-行动闭环 \cite{yao2023react}}
+\end{frame}
+
+\begin{frame}{Agent tool loop：能力被缩小到 9 个本地 MCP 工具}
+\begin{columns}[T,onlytextwidth]
+\column{0.49\textwidth}
+\begin{exampleblock}{允许的工具族}
+\begin{itemize}
+  \item authoritative round state
+  \item recall playbook
+  \item score/approve candidate
+  \item NVD、arXiv、OSV、CISA 查询
+  \item submit round summary
+\end{itemize}
+adaptive 服务器还明确移除 \pathcode{record_technique}；controller 根据真实 outcome 自动 harvest。
+\end{exampleblock}
+\column{0.47\textwidth}
+\begin{alertblock}{明确关闭}
+\begin{itemize}
+  \item \pathcode{tools=[]}
+  \item \pathcode{setting_sources=[]}
+  \item 不授予 shell、filesystem、web 等内建工具
+  \item 每轮最多 24 SDK turns
+\end{itemize}
+因此外部内容不能直接扩大 agent 权限面。
+\end{alertblock}
+\end{columns}
+\smallsource{\pathcode{runtime/client.py:149-164}；\pathcode{tools/server.py:14-47}；\pathcode{agent/loop.py:50-96}}
+\end{frame}
+
+\begin{frame}{结构化决策：LLM 只能提交符合 Pydantic 的 tool payload}
+\centering
+\begin{tikzpicture}[
+  n/.style={draw,rounded corners,minimum height=0.76cm,align=center,font=\scriptsize,thick},
+  a/.style={-{Latex[length=1.7mm]},thick,Navy},node distance=0.48cm
+]
+\node[n,fill=SoftBlue,minimum width=2.2cm] (features) {compact features};
+\node[n,fill=SoftBlue,right=of features,minimum width=2.2cm] (session) {isolated decision\\session};
+\node[n,fill=SoftAmber,right=of session,minimum width=2.4cm] (force) {forced tool\\submit\_decision};
+\node[n,fill=SoftAmber,right=of force,minimum width=2.2cm] (json) {JSON decode\\Pydantic};
+\node[n,fill=SoftGreen,right=of json,minimum width=2.1cm] (result) {typed decision};
+\draw[a] (features)--(session);\draw[a] (session)--(force);\draw[a] (force)--(json);\draw[a] (json)--(result);
+\node[n,fill=SoftRed,below=0.7cm of json,minimum width=5.2cm] (fail) {timeout / parse / schema / SDK failure -> None + telemetry};
+\draw[a,Red] (json)--(fail);
+\end{tikzpicture}
+
+\vspace{0.8em}
+\begin{block}{为什么这比自由文本可靠}
+决策 schema 是 API 合约；失败可计数、可回放、可触发同一确定性 fallback。模型理由保留用于审计，但不能越过 Python 验证。
+\end{block}
+\smallsource{\pathcode{backend/intel_agent/runtime/structured.py:46-143}}
+\end{frame}
+
+\begin{frame}{本地 hooks：预算和候选约束的最后一道闸门}
+\tiny
+\begin{tabularx}{\textwidth}{p{0.18\textwidth} X X}
+\toprule
+时点 & 检查/记录 & 安全效果 \\
+\midrule
+PreToolUse & 总预算、每轮上限、超时、approved candidate、源/通道、重复 query & 越界在网络调用前被拒绝 \\
+tool handler & 再次校验权威时间窗、参数白名单、分页、去重 & 即使 hook 漏过也不能伪造范围 \\
+PostToolUse & 调用审计、结果摘要、预算计数 & reward 与 trace 有事实来源 \\
+PostToolUseFailure & retryable/分页/失败原因写入 RunGap & 不把执行失败误当作语料饱和 \\
+\bottomrule
+\end{tabularx}
+
+\vspace{0.2em}
+\begin{alertblock}{安全模型}
+\scriptsize
+tool result 和 source 文本都视为不可信数据。即使其中包含 prompt injection，agent 也只有白名单工具、无 shell/文件权限，且调用参数由 handler 再验证。仍需在实验中用 AgentDojo 式恶意内容测试该假设 \cite{debenedetti2024agentdojo}。
+\end{alertblock}
+\smallsource{\pathcode{backend/intel_agent/hooks.py:32-178}；\pathcode{tools/source_tools.py:90-208}}
+\end{frame}
+
+\begin{frame}{故障降级格：不是一个 fallback，而是分层保底}
+\small
+\centering
+\begin{tikzpicture}[
+  level/.style={draw,rounded corners,minimum width=11.0cm,minimum height=0.65cm,align=center,font=\scriptsize,thick},
+  a/.style={-{Latex[length=1.8mm]},thick,Red}
+]
+\node[level,fill=SoftGreen] (l1) {L1 正常：continuous SDK + approved adaptive portfolio};
+\node[level,fill=SoftBlue,below=0.25cm of l1] (l2) {L2 session error：用 sdk\_session\_id resume};
+\node[level,fill=SoftAmber,below=0.25cm of l2] (l3) {L3 resume 失败：fresh SDK session};
+\node[level,fill=SoftRed,below=0.25cm of l3] (l4) {L4 adaptive hard failure：controller 整体降级到 legacy};
+\node[level,fill=Paper,below=0.25cm of l4] (l5) {L5 持久层失败：Mongo -> JSON（若允许）并记录 error};
+\draw[a] (l1)--(l2);\draw[a] (l2)--(l3);\draw[a] (l3)--(l4);\draw[a] (l4)--(l5);
+\end{tikzpicture}
+
+\vspace{0.2em}
+\begin{block}{soft-complete 与 hard-failure}
+SDK 报错但本轮已有 yield 可 soft-complete；没有可靠 yield 才 hard-failure。降级事件写 trace，避免静默改变实验条件。
+\end{block}
+\end{frame}
+
+\begin{frame}{停止决策：adaptive 的 critic 主要解释，硬条件才决定}
+\small
+\begin{columns}[T,onlytextwidth]
+\column{0.49\textwidth}
+\begin{block}{Adaptive 权威停止原因}
+\begin{enumerate}
+  \item max rounds
+  \item API budget exhausted
+  \item timeout
+  \item corpus saturated / 无可执行候选
+\end{enumerate}
+代码最终令 \pathcode{should_continue = (stop_reason is None)}；critic 的结构化输出用于说明与 telemetry。
+\end{block}
+\column{0.47\textwidth}
+\begin{block}{Legacy critic + 安全阀}
+优先级：max rounds $>$ stall $>$ open gaps 且有预算 $>$ min rounds。结构化 critic 失败时回到规则判断。
+\end{block}
+\begin{alertblock}{当前语义风险}
+summary 的 \pathcode{stop_reason=null} 与 \pathcode{last_action=STOP} 可以同时出现；Control 阶段应统一终止原因 schema。
+\end{alertblock}
+\end{columns}
+\smallsource{\pathcode{engine/controller.py:704-877}；\pathcode{agent/critic.py}}
+\end{frame}

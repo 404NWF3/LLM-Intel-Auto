@@ -1,0 +1,213 @@
+\section{系统学术化：创新点与实验计划}
+
+\begin{frame}{问题形式化：带安全与质量约束的主动证据采集}
+\scriptsize
+\begin{block}{状态、动作与观测}
+状态/信念 $b_t$ 包含 CorpusGap、checkpoint、历史 arm reward、预算和测量不确定性；
+动作 $A_t$ 是最多 4 个带 source/operator/intent 的 query portfolio；观测 $O_t$ 是去重、相关性标注后的 items 与 tool outcome。
+\end{block}
+
+\begin{block}{目标}
+\[
+\max_{\pi}\ \mathbb E_{\pi}\left[\sum_{t=1}^{T}
+\Delta V(b_t,A_t)-\lambda_c C_t-\lambda_n N_t-\lambda_d D_t\right]
+\]
+\[
+\begin{aligned}
+\text{s.t.}\quad C_{1:T}&\le B,\\
+\Pr(Precision<P_{min})&\le\alpha,\\
+\Pr(critical\ gap\ at\ stop)&\le\beta,\qquad
+\text{policy violations}=0.
+\end{aligned}
+\]
+其中 $V$ 是质量加权覆盖价值，$C/N/D$ 分别是成本、噪声与重复。
+\end{block}
+
+\begin{alertblock}{学术定位}
+这是 constrained active search / contextual combinatorial bandit / risk-aware stopping 的交叉问题，而不是普通信息抽取或通用网页问答。
+\end{alertblock}
+\end{frame}
+
+\begin{frame}{候选创新点：每一点都必须有独立消融证据}
+\small
+\begin{enumerate}
+  \item \research\ \textbf{Evidence tensor}：topic × channel × trust × independence × freshness，并传播 relevance uncertainty；检验其与分析师 utility 的相关性是否高于 item count。
+  \item \research\ \textbf{Source-aware constrained bandit}：将来源适用性、成本、时延、分页风险和结构 gap 放入上下文，选组合 portfolio，而非只最大化 new items。
+  \item \research\ \textbf{Risk-bounded stopping}：用 precision/coverage 的下置信界和未完成 RunGap 约束停止，显式分解 premature stop 与 budget waste。
+  \item \research\ \textbf{Provenance-aware KG feedback}：从图的缺边、冲突实体和低置信关系生成目标 query，使 collection 与 graph completion 闭环。
+  \item \research\ \textbf{Process benchmark}：发布 source fixtures、恶意内容、故障注入、trace、人工 gold 与成本，评价最终 corpus 和行动过程。
+\end{enumerate}
+
+\begin{block}{创新纪律}
+“使用 LLM/SDK/UCB/知识图谱”本身都不是创新；创新必须是新问题定义、算法、理论性质、benchmark 或实证发现，并相对强基线显著增益。
+\end{block}
+\end{frame}
+
+\begin{frame}{Research Questions 与可证伪假设}
+\scriptsize
+\begin{tabularx}{\textwidth}{p{0.09\textwidth} X X}
+\toprule
+RQ & 问题 & 预注册假设 \\
+\midrule
+RQ1 & 有效证据 coverage 是否比 raw count/legacy quota 更符合专家 utility？ & H1：与盲评 utility 的 Spearman 相关更高，差值 CI 不跨 0 \\
+RQ2 & source-aware constrained policy 是否提升固定预算的 corpus 价值？ & H2：weighted coverage/evidence-per-call 高于 round-robin、legacy、当前 UCB \\
+RQ3 & risk-bounded stopping 能否减少提前停止且不过度耗费预算？ & H3：premature-stop rate 下降，cost 增量不超过预设 non-inferiority margin \\
+RQ4 & 测量校准和 active labeling 是否改善长尾主题？ & H4：人工 precision 不降，uncertain 与 critical long-tail gaps 同时下降 \\
+RQ5 & KG feedback 是否提高图质量和下游任务？ & H5：缺边/冲突减少，analyst QA 与 attack reconstruction 提升 \\
+RQ6 & 恶意内容与故障下的 utility-security-resilience 边界是什么？ & H6：零 policy violation，resume 无水位跳跃；性能退化可量化 \\
+\bottomrule
+\end{tabularx}
+\end{frame}
+
+\begin{frame}{Benchmark 设计：任务、源快照、人工金标三层冻结}
+\begin{columns}[T,onlytextwidth]
+\column{0.49\textwidth}
+\begin{block}{任务层（建议 30 个）}
+\begin{itemize}
+  \item 18 个 Core 单主题任务
+  \item 6 个跨通道多主题任务
+  \item 3 个供应链/CVE confirmation 任务
+  \item 3 个 emerging/Extended discovery 任务
+\end{itemize}
+每个任务给 goal、budget、time window、适用源和专家验收标准。
+\end{block}
+\column{0.47\textwidth}
+\begin{block}{环境层}
+\begin{itemize}
+  \item 三个冻结 source snapshots，保留分页与 HTTP fixture
+  \item live shadow 子集验证外部有效性
+  \item adversarial fixture：prompt injection、伪 ID、poisoned metadata
+  \item failure fixture：429/5xx、超时、分页中断、Mongo/SDK restart
+\end{itemize}
+\end{block}
+\end{columns}
+
+\begin{block}{Gold 层}
+专家标注 relevance、multi-label topic、canonical event、evidence channel、source independence、actionability，并为任务列最低必要事件/证据；标注员对策略盲法。
+\end{block}
+\end{frame}
+
+\begin{frame}{基线与消融：必须比“当前最好实现”更强，而非只比随机}
+\scriptsize
+\begin{tabularx}{\textwidth}{p{0.23\textwidth} X p{0.25\textwidth}}
+\toprule
+策略 & 定义 & 回答的问题 \\
+\midrule
+B0 Fixed round-robin & 固定源顺序、模板 query、固定轮次 & 最弱可解释基线 \\
+B1 Current full legacy & 当前 SDK + legacy quota/critic/fallback & 真实生产基线 \\
+B2 Current adaptive UCB & 当前 CorpusGap + UCB + checkpoints & 当前最强代码基线 \\
+B3 Greedy gap & 无探索项，只选最高即时 gap reduction & exploration 是否必要 \\
+B4 Bayesian/active search & 简化后验或 look-ahead 基线 & UCB 与主动搜索差异 \\
+P Proposed & 校准 evidence + source-aware constrained policy + risk stop & 完整方法 \\
+Oracle replay & 使用 gold relevance/事件和 hindsight best action & 可达上界/策略 regret \\
+\bottomrule
+\end{tabularx}
+
+\vspace{0.5em}
+\begin{block}{消融}
+从 P 分别移除：trust、uniqueness、freshness、applicability mask、exploration、memory、risk-bound stop、KG feedback；保持候选集、预算与 source fixture 一致。
+\end{block}
+\end{frame}
+
+\begin{frame}{实验分阶段：先冻结 replay 找因果，再 live shadow 验外部效度}
+\begin{enumerate}
+  \item \textbf{Pilot/功效模拟}：5 个任务估计 task/source/seed 方差，冻结最小重要效应（SESOI）与样本量。
+  \item \textbf{Screening DOE}：分数因子设计筛 relevance state、policy、stop、memory 四类主效应与关键交互。
+  \item \textbf{Confirmatory replay}：暂定 30 tasks × 7 policies × 5 seeds = 1,050 runs；所有源响应冻结，候选 proposal 可缓存以隔离 policy 效应。
+  \item \textbf{Live shadow}：10 tasks × 主要策略 × 3 repeats，按时间交错，固定预算，不自动写入主 corpus。
+  \item \textbf{Safety/resilience}：每策略跑 adversarial + interruption suite；任何越权是 stop-ship。
+  \item \textbf{KG downstream}：固定 100-item 子集与增量图，盲评实体/关系/冲突和 analyst tasks。
+\end{enumerate}
+
+\begin{alertblock}{公平性}
+同任务同 source snapshot、同预算、同 provider/model/version、同候选生成温度与 seed；若 fallback 发生，作为 treatment adherence 报告，不能静默并入主结果。
+\end{alertblock}
+\end{frame}
+
+\begin{frame}{指标体系：结果、过程、安全、成本四维并列}
+\scriptsize
+\begin{tabularx}{\textwidth}{p{0.17\textwidth} X X}
+\toprule
+维度 & Primary & Secondary / 诊断 \\
+\midrule
+质量 & 人工 precision、recall proxy、Brier/ECE & uncertain、topic macro F1、citation/source accuracy \\
+覆盖 & weighted evidence coverage、critical gap count & channel completeness、freshness、long-tail coverage \\
+独立性 & canonical independent events、异源佐证率 & duplicate event/source ratio \\
+策略 & evidence/API call、cumulative gap regret & arm entropy、query novelty、operator utilization \\
+停止 & premature-stop rate、budget waste & optimal-round deviation、unresolved RunGap \\
+韧性 & resume success、checkpoint integrity & fallback rate、recovery latency \\
+安全 & policy violation rate、prompt-injection attack success & denied calls、trace completeness \\
+KG & triple precision/recall、entity alignment、conflict rate & reconstruction/QA/attack-chain task score \\
+成本 & USD、wall time、tokens、source calls & p50/p95 latency、cost/effective evidence \\
+\bottomrule
+\end{tabularx}
+\smallsource{DeepResearch Bench 提供有效引用/准确率思路 \cite{du2025deepresearchbench}；AgentDojo 提供 utility-security 双目标测试 \cite{debenedetti2024agentdojo}。}
+\end{frame}
+
+\begin{frame}{统计计划：任务内配对、报告效应量，不只报显著性}
+\small
+\begin{itemize}
+  \item \textbf{预注册}：primary outcomes、SESOI、排除规则、fallback 处理、多重比较族和 stopping rule。
+  \item \textbf{配对设计}：同 task/snapshot/seed 比较策略；对 coverage/cost ratio 用 paired bootstrap（10,000 次）给 95\% CI。
+  \item \textbf{混合效应模型}：$y\sim policy+rarity+snapshot+policy\!:\!rarity+(1|task)$；二项缺陷用 logistic/beta-binomial。
+  \item \textbf{多重检验}：主假设 Holm 校正；探索性分析 Benjamini-Hochberg，并清楚分区。
+  \item \textbf{效应量}：均值/中位数差、Cliff's delta、odds ratio、CI；non-inferiority 同时报告 margin 与 CI。
+  \item \textbf{鲁棒性}：按 source、topic rarity、fallback、provider 分层；对 trust/half-life/threshold 做敏感性曲线。
+\end{itemize}
+
+\begin{alertblock}{样本量}
+“30 × 5”是初始工程计划，不作为事后合理化。正式样本量由 pilot 方差与预设 SESOI 做 simulation-based power analysis 后冻结。
+\end{alertblock}
+\end{frame}
+
+\begin{frame}{有效性威胁与对策}
+\scriptsize
+\begin{tabularx}{\textwidth}{p{0.19\textwidth} X X}
+\toprule
+威胁 & 具体风险 & 对策 \\
+\midrule
+Construct & coverage/effective evidence 不等于 analyst value & 专家盲评、下游任务、与 raw metric 做相关/预测比较 \\
+Measurement & relevance/topic/event gold 不可靠 & MSA、复测、裁决、概率校准、报告不确定性 \\
+Internal & source 漂移、缓存、bandit state 泄漏、fallback 混杂 & frozen fixtures、冷启动/明确 warm-start、配对 seed、adherence 分析 \\
+External & 仅四个源、LLM 安全 taxonomy 特定 & live shadow、跨时间快照、公开适用性边界 \\
+Statistical & 长尾、零膨胀、重复 run 非独立 & 分层/混合模型、bootstrap、任务为分析单元 \\
+Security & 源文本 prompt injection、工具越权 & 恶意 fixture、零权限扩张、hook/handler 双校验 \\
+Reproducibility & API/模型版本变化、付费服务不可得 & fixture、Docker digest、uv lock、mock provider、完整 trace/config manifest \\
+Ethics/legal & 数据许可、漏洞细节滥用 & 仅发布允许字段/哈希/ID、负责任披露、危险内容访问控制 \\
+\bottomrule
+\end{tabularx}
+\end{frame}
+
+\begin{frame}{开放研究资产：让工程运行可以被独立复现}
+\small
+\begin{block}{开放研究资产}
+\begin{itemize}
+  \item benchmark tasks + annotation handbook
+  \item 合规 source fixtures / IDs / hashes
+  \item experiment config、seed、uv lock、Docker digest
+  \item policy/ablation runner、mock source/provider
+  \item per-run manifest、trace、cost 与 exclusion log
+  \item statistical notebook + raw aggregate tables
+\end{itemize}
+\end{block}
+
+\begin{alertblock}{最低复现单元}
+每个结果必须能追溯到 task manifest、source snapshot、annotation version、model/prompt/taxonomy、policy config、seed、trace、cost 与 exclusion log；缺任一项都不进入主结果表。
+\end{alertblock}
+\end{frame}
+
+\begin{frame}{论文路线：一套系统拆成可累积的证据链}
+\small
+\begin{block}{论文序列}
+\begin{enumerate}
+  \item \textbf{Measurement/Benchmark paper}：有效证据与 LLM-security CTI collection benchmark
+  \item \textbf{Algorithm paper}：source-aware constrained active search + risk stopping
+  \item \textbf{Systems/Security paper}：恶意源与故障下的 utility-security-resilience
+  \item \textbf{KG paper}：provenance-aware collection-KG closed loop
+\end{enumerate}
+\end{block}
+
+\begin{alertblock}{先后顺序}
+先发表/冻结 measurement 与 benchmark，再声称 policy 创新；否则后续所有提升都可能只是对自定义指标的过拟合。
+\end{alertblock}
+\end{frame}

@@ -1,0 +1,241 @@
+\section{核心算法与数理解释}
+
+\begin{frame}{Legacy 覆盖：直观、便宜，但把 item 当作等质证据}
+\begin{block}{默认配额}
+对每个 Core 主题 $t$，相关 item 数 $n_t$ 的目标为 $q=3$：
+\[
+G_t^{\mathrm{legacy}}=\mathbb{1}[n_t<q],\qquad
+C_t=\min\left(1,\frac{n_t}{q}\right)
+\]
+有 \pathcode{metadata.relevance.label} 时，只有 relevant 进入 $n_t$；无标签时按 raw score $\ge 0.5$。
+\end{block}
+
+\begin{columns}[T,onlytextwidth]
+\column{0.48\textwidth}
+\begin{exampleblock}{优点}
+可解释、无 embedding 依赖、适合作为最小可用 fallback；stall 用连续低收益轮次识别。
+\end{exampleblock}
+\column{0.48\textwidth}
+\begin{alertblock}{缺点}
+不区分来源 trust、异源独立性、新鲜度、主题分摊和证据通道；三条同源重复边缘材料也可能“填满”。
+\end{alertblock}
+\end{columns}
+\smallsource{\pathcode{analysis.py:26-27,63-82,179-241}；默认 stall patience=2，最低 new relevant/call=0.5。}
+\end{frame}
+
+\begin{frame}{Adaptive 覆盖目标：从一维主题计数升级为证据张量}
+\begin{block}{目标集合}
+\[
+\mathcal{C}=\{(t,h):t\in\text{Core},\ h\in\{research,advisory\},\ \text{applicable}(t,h)\}
+\]
+18 个 research 单元；除 jailbreak、model backdoor 外的 16 个 advisory 单元，共 $34$ 个。
+每个单元目标有效证据 $T_{t,h}=3$。
+\end{block}
+
+\centering
+\begin{tikzpicture}[x=0.57cm,y=0.48cm]
+\foreach \x in {0,...,17} {
+  \node[draw,minimum width=0.5cm,minimum height=0.42cm,fill=SoftBlue] at (\x,1) {};
+}
+\foreach \x in {0,...,15} {
+  \node[draw,minimum width=0.5cm,minimum height=0.42cm,fill=SoftGreen] at (\x,0) {};
+}
+\node[anchor=east,font=\scriptsize] at (-0.7,1) {research};
+\node[anchor=east,font=\scriptsize] at (-0.7,0) {advisory};
+\node[anchor=west,font=\scriptsize,text=Slate] at (18.0,1) {18 topics};
+\node[anchor=west,font=\scriptsize,text=Slate] at (16.0,0) {16 applicable};
+\end{tikzpicture}
+
+\vspace{0.5em}
+\begin{alertblock}{CISA exploitation 的位置}
+CISA 作为确认信号进入 QueryCallOutcome/reward，但当前 \pathcode{compute_corpus_gaps} 只累积 research 与 advisory；不要声称 34 个 target 包含 exploitation。
+\end{alertblock}
+\smallsource{\pathcode{engine/gaps.py:51-62,147-159}}
+\end{frame}
+
+\begin{frame}{有效证据：一条 item 的贡献被五个因子共同约束}
+\begin{block}{单元 $(t,h)$ 的有效证据}
+\[
+E_{t,h}=\sum_{i\in\mathcal I_h}
+\underbrace{q_{i,t}}_{\text{topic credit}}
+\underbrace{p_i}_{\text{relevance}}
+\underbrace{\tau_{s(i)}}_{\text{source trust}}
+\underbrace{u_i}_{\text{event uniqueness}}
+\underbrace{f_{i,h}}_{\text{freshness}}
+\]
+\end{block}
+\begin{columns}[T,onlytextwidth]
+\column{0.49\textwidth}
+\begin{itemize}
+  \item $\sum_t q_{i,t}\le 1$：多主题 credit 守恒
+  \item $p_i\in[0,1]$：irrelevant 直接置 0
+  \item $\tau_s$：arXiv .72、NVD .90、OSV .84
+\end{itemize}
+\column{0.47\textwidth}
+\begin{itemize}
+  \item $u_i=1$ 首个事件，0.5 异源佐证，0 同源重复
+  \item $f_{i,h}=\max(0.5,2^{-a_i/H_h})$
+  \item $H_{research}=365$ 天，$H_{advisory}=730$ 天
+\end{itemize}
+\end{columns}
+\smallsource{\pathcode{engine/gaps.py:65-176}}
+\end{frame}
+
+\begin{frame}{计算示例：两条“同事件”材料不会贡献 2 份证据}
+\begin{block}{假设：同一 CVE 的首个 NVD item + 一个 OSV 异源佐证}
+\[
+\begin{aligned}
+e_1 &= 1.0\times0.75\times0.90\times1.0\times1.0=0.675,\\
+e_2 &= 1.0\times0.85\times0.84\times0.5\times1.0=0.357,\\
+E &= 1.032,\qquad
+G^{cov}=\max(0,1-E/3)=0.656.
+\end{aligned}
+\]
+\end{block}
+
+\begin{columns}[T,onlytextwidth]
+\column{0.47\textwidth}
+\begin{exampleblock}{得到的好处}
+跨源佐证有价值，但不会与独立新事件等价；一条多标签材料也不能给每个主题都加 1。
+\end{exampleblock}
+\column{0.49\textwidth}
+\begin{alertblock}{仍需研究}
+固定 trust 与 0.5 佐证系数是工程先验，不是经验校准结果。论文实验应学习或敏感性分析这些权重。
+\end{alertblock}
+\end{columns}
+\end{frame}
+
+\begin{frame}{Gap 优先级：coverage 占 60\%，通道完整性和新鲜度各 20\%}
+\begin{block}{三个缺口}
+\[
+G^{cov}_{t,h}=\max(0,1-E_{t,h}/T_{t,h}),\quad
+G^{div}_{t}=1-\frac{|H^{present}_t|}{|H^{required}_t|},\quad
+G^{fresh}_{t,h}=\mathbb{1}[\text{stale}]
+\]
+\[
+P_{t,h}=\min\left(1,0.6G^{cov}_{t,h}+0.2G^{div}_{t}+0.2G^{fresh}_{t,h}\right)
+\]
+\end{block}
+
+\begin{itemize}
+  \item 通道在 $E_{t,h}\ge 1$ 后才算 present；fresh SLA：research 180 天、advisory 365 天。
+  \item $P=0$ 才标记 satisfied；否则按 0.85/0.65/0.35 分 critical/high/medium/low。
+  \item 这里的 diversity 是\alert{证据通道完整性}，不是来源数量或事件数量；命名需要在 Control 中澄清。
+\end{itemize}
+\smallsource{\pathcode{engine/gaps.py:180-229}}
+\end{frame}
+
+\begin{frame}{UCB 选候选：gap-aware exploitation + optimism exploration}
+\scriptsize
+\begin{block}{Arm}
+\[
+a=(topic,\ channel,\ source,\ intent,\ operator\ signature)
+\]
+它比“每个 source 一个 arm”更细，能区分同源不同高级算子和意图。
+\end{block}
+\begin{block}{当前 utility}
+\[
+\begin{aligned}
+R_a^{exp}&=\min\left(1,0.6\sum_{g\in target(a)}P_g+0.4\max(0,\bar r_a)\right),\\
+U_a&=R_a^{exp}+\sqrt{\frac{2\ln(N+2)}{n_a+1}}-0.2\,noise_a-0.2\,dup_a.
+\end{aligned}
+\]
+\end{block}
+
+\begin{alertblock}{理论边界}
+借用了 UCB 的探索项 \cite{auer2002ucb}，但 reward 非平稳、arm 组合化、候选由 LLM 生成且有预算约束；不能直接继承经典 UCB1 regret 保证。
+\end{alertblock}
+\smallsource{\pathcode{engine/bandit.py:12-67}}
+\end{frame}
+
+\begin{frame}{Portfolio 与 reward：把“查到很多”改写成“减少高优先级缺口”}
+\begin{columns}[T,onlytextwidth]
+\column{0.48\textwidth}
+\begin{block}{Portfolio 约束}
+\begin{itemize}
+  \item 每轮最多 4 个候选
+  \item discovery 累计不超过总预算 20\%（Extended focus 可放宽）
+  \item confirmation 不超过 10\%
+  \item 排序确定性：utility 降序，再按 candidate ID
+\end{itemize}
+\end{block}
+\column{0.48\textwidth}
+\begin{block}{归一化 reward}
+\scriptsize
+\[
+r=\frac{(P_{before}-P_{after})_+}{\max(1,P_{before})}
++b_{disc}+b_{conf}
+-0.2\rho_{noise}-0.2\rho_{dup}-0.05
+\]
+最后截断到 $[-1,1]$。发现奖励最多 .25；确认奖励最多 .25。
+\end{block}
+\end{columns}
+
+\begin{alertblock}{归因难点}
+一个 portfolio 内多个 query 共同改变 gap；当前按调用前后优先级差归因，存在顺序效应。学术化可用 Shapley 近似、counterfactual replay 或 doubly robust estimator 改进。
+\end{alertblock}
+\smallsource{\pathcode{engine/bandit.py:70-127}}
+\end{frame}
+
+\begin{frame}{Checkpoint 与 RunGap：增量正确性取决于“水位能否安全推进”}
+\centering
+\begin{tikzpicture}[
+  n/.style={draw,rounded corners,minimum height=0.72cm,minimum width=2.3cm,align=center,font=\scriptsize,thick},
+  a/.style={-{Latex[length=1.7mm]},thick,Navy},node distance=0.45cm
+]
+\node[n,fill=SoftBlue] (scope) {checkpoint + 72h overlap\\形成权威 window};
+\node[n,fill=SoftGreen,right=of scope] (call) {分页查询\\NVD/arXiv};
+\node[n,fill=SoftAmber,right=of call] (proof) {success? has\_more?\\retryable?};
+\node[n,fill=SoftGreen,right=of proof] (advance) {仅 success 且\\no more 时推进};
+\node[n,fill=SoftRed,below=0.75cm of proof] (gap) {否则写 RunGap\\保留旧水位};
+\draw[a] (scope)--(call);\draw[a] (call)--(proof);\draw[a] (proof)--(advance);\draw[a,Red] (proof)--(gap);
+\end{tikzpicture}
+
+\vspace{1em}
+\begin{block}{为什么有 overlap}
+数据源可能延迟发布、修改时间漂移或分页中断。72 小时重叠牺牲少量重复请求，换取不漏掉边界事件；自然键去重吸收重复。
+\end{block}
+\smallsource{\pathcode{engine/modes.py}；\pathcode{engine/controller.py:521-610}}
+\end{frame}
+
+\begin{frame}{新主题发现：先确定性门控，再让 LLM 命名}
+\small
+\begin{enumerate}
+  \item residual：$p_i\ge0.7$、已知主题最大分 $<0.55$、最近 120 天；最多 500 条。
+  \item embedding 聚类：任一成员余弦相似度 $\ge0.82$ 即并入。
+  \item 独立性：至少 3 个 canonical events、至少 2 个 sources。
+  \item 分离度：与已知 topic anchor 的最大相似度 $<0.7$。
+  \item 时序：最近 30 天至少 2 个，burst ratio $\ge1.5$。
+\end{enumerate}
+
+\begin{block}{Emergence score}
+\[
+S=\min(1,\underbrace{\min(1,n_{event}/5)}_{support}
+\underbrace{\min(1,n_{source}/3)}_{diversity}
+\underbrace{\min(1,(1-s_{anchor})/0.3)}_{separation}
+\underbrace{\min(1,burst/4)}_{burst}\bar p)
+\]
+\end{block}
+只有过门控的 cluster 才交给结构化 LLM 生成名称，降低“模型凭空发明新威胁类别”的概率。
+\smallsource{\pathcode{engine/gaps.py:337-447}}
+\end{frame}
+
+\begin{frame}{Playbook：跨 run 记忆的是“可复用检索技术”，不是模型自由文本}
+\begin{columns}[T,onlytextwidth]
+\column{0.47\textwidth}
+\begin{block}{Entry}
+topic bucket、source、operator signature、technique text、参数样例、reward、pulls/hits、provenance runs、embedding、status。
+\end{block}
+\begin{block}{召回}
+有语义 query 时：相似度与 reward 加权；否则按 reward/pulls。digest 只放少量高分条目。
+\end{block}
+\column{0.49\textwidth}
+\begin{block}{更新与衰减}
+新 relevant/call $\ge0.5$ 才 harvest；未使用条目 reward $\times0.9$；pulls $\ge3$ 且 reward $<0.1$ 可 deprecated；reward $\ge1$ 且 pulls $\ge3$ 可 verified。
+\end{block}
+\begin{alertblock}{当前快照}
+22 条：13 deprecated、8 active、1 verified。说明记忆系统已工作，但“verified”样本仍太少，暂不能证明跨 run 学习收益。
+\end{alertblock}
+\end{columns}
+\smallsource{\pathcode{memory/playbook.py:74-239}；\pathcode{runtime_snapshot.json}}
+\end{frame}

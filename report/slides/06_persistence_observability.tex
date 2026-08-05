@@ -1,0 +1,111 @@
+\section{持久化、可观测性与代码映射}
+
+\begin{frame}{持久化：run 与 item 分离，去重同时保留 provenance}
+\begin{columns}[T,onlytextwidth]
+\column{0.49\textwidth}
+\begin{block}{Mongo 主路径}
+\begin{itemize}
+  \item \pathcode{runs}：每个任务一份 blackboard/summary/item IDs
+  \item \pathcode{items}：\pathcode{_id=item_id} 全局去重
+  \item \pathcode{run_ids}：同一 item 被哪些 run 观测到
+  \item \pathcode{knowledge_graphs}：item-KG 独立集合
+  \item run 文档移除 raw\_text，避免重复膨胀
+\end{itemize}
+\end{block}
+\column{0.47\textwidth}
+\begin{block}{JSON fallback}
+schema v3；临时文件 + 原子替换；维护 \pathcode{latest.json}；适合无 Mongo 或降级场景。
+\end{block}
+\begin{alertblock}{双存储口径风险}
+当前 \pathcode{latest.json} 比 Mongo 最新 run 更旧。报表必须显示 storage backend 与 snapshot time，不能混合总量。
+\end{alertblock}
+\end{columns}
+\smallsource{\pathcode{mongo_store.py:67-253}；\pathcode{persistence.py:40-103}}
+\end{frame}
+
+\begin{frame}{TraceSink：把 agent 行为变成可分析的事件流}
+\scriptsize
+\begin{tabularx}{\textwidth}{p{0.23\textwidth} X X}
+\toprule
+事件族 & 代表事件 & 可回答的问题 \\
+\midrule
+轮次 & round\_start, round\_summary, critic & 每轮状态、收益与停止理由如何变化？ \\
+模型 & thinking, assistant\_text, session\_end & 模型花了多少 turns/cost，是否报错？ \\
+工具 & tool\_call, tool\_result & 调了什么工具，参数与结果摘要是什么？ \\
+恢复 & strategy\_fallback, errors & 何时改变策略，降级是否静默？ \\
+UI & on\_event callback & 控制台能否实时显示同一事件？ \\
+\bottomrule
+\end{tabularx}
+
+\vspace{0.2em}
+\begin{alertblock}{计数口径}
+\pathcode{tool_call} 包括状态、记忆、候选评分与 summary 工具；外部源 API 调用数应读取 blackboard metrics / QueryCallOutcome，不能直接使用 trace tool-call 数。
+\end{alertblock}
+\smallsource{\pathcode{observability.py:34-116}；\pathcode{agent/loop.py}}
+\end{frame}
+
+\begin{frame}{采集到 item-KG：清晰交接，但尚未形成全局图闭环}
+\centering
+\begin{tikzpicture}[
+  n/.style={draw,rounded corners,minimum width=2.7cm,minimum height=0.85cm,align=center,font=\scriptsize,thick},
+  a/.style={-{Latex[length=1.7mm]},thick,Navy},node distance=0.65cm
+]
+\node[n,fill=SoftBlue] (item) {Mongo/JSON item\\raw\_text/summary};
+\node[n,fill=SoftAmber,right=of item] (elig) {eligibility + prompt\\CTINexus adapter};
+\node[n,fill=SoftGreen,right=of elig] (smallkg) {item-level KG\\manifest/feedback};
+\node[n,fill=Paper,right=of smallkg] (global) {未来 global KG\\schema mapping/alignment};
+\draw[a] (item)-- node[above,font=\tiny]{run\_id + DTO} (elig);
+\draw[a] (elig)--(smallkg);
+\draw[a,dashed] (smallkg)-- node[above,font=\tiny]{尚未实现} (global);
+\draw[a,dashed,bend right=28,Purple] (global.south) to node[below,font=\tiny,text=Purple]{结构 gap 反向生成 query} (item.south);
+\end{tikzpicture}
+
+\vspace{0.8em}
+\begin{columns}[T,onlytextwidth]
+\column{0.48\textwidth}
+\begin{exampleblock}{当前验证}
+smoke pipeline 通过 fake process，证明 import boundary、KG handoff 和 TraceSink 基本路径可运行。
+\end{exampleblock}
+\column{0.48\textwidth}
+\begin{alertblock}{尚未完成}
+item-KG 与 base KG 的 schema mapping、实体对齐、冲突合并、provenance confidence 和质量门控仍是路线图。
+\end{alertblock}
+\end{columns}
+\smallsource{CTINexus 方法参照 \cite{cheng2025ctinexus}；CTI 互操作参照 STIX 2.1 \cite{stix21}}
+\end{frame}
+
+\begin{frame}{代码地图：从报告概念回到当前实现}
+\scriptsize
+\begin{tabularx}{\textwidth}{p{0.20\textwidth} p{0.36\textwidth} X}
+\toprule
+概念 & 主要文件 & 权威职责 \\
+\midrule
+taxonomy & \pathcode{backend/common/topics.py} & Core/Extended、关键词、anchors \\
+状态/schema & \pathcode{backend/intel_agent/schemas.py} & item、candidate、gap、checkpoint、blackboard \\
+控制器 & \pathcode{engine/controller.py} & 模式边界、轮次、fallback、stop、persist \\
+覆盖/发现 & \pathcode{engine/gaps.py} & 有效证据、priority、trend、emergence \\
+bandit & \pathcode{engine/bandit.py} & arm、UCB、portfolio、reward \\
+相关性 & \pathcode{relevance.py} & rule/embedding/LLM、cache \\
+数据源 & \pathcode{sources.py} & HTTP、operator、parser、初始 score \\
+工具/约束 & \pathcode{tools/*.py}, \pathcode{hooks.py} & MCP 白名单、候选与预算校验 \\
+SDK & \pathcode{agent/loop.py}, \pathcode{runtime/*.py} & session、tool-forcing、provider、恢复 \\
+存储/观测 & \pathcode{mongo_store.py}, \pathcode{persistence.py}, \pathcode{observability.py} & provenance、原子写、JSONL trace \\
+下游 KG & \pathcode{backend/ctinexus_kg/} & item 级构图，失败隔离 \\
+\bottomrule
+\end{tabularx}
+\end{frame}
+
+\begin{frame}{源码审计发现的五个“容易误读”点}
+\begin{enumerate}
+  \item \risk\ full 可使用 SDK，但\alert{不是} adaptive CorpusGap 路径。
+  \item \risk\ \pathcode{core_gap_count=0} 可能只是 CorpusGap 列表为空；不代表 legacy 配额已满足。
+  \item \risk\ \pathcode{stop_reason=null} 可与最后动作 STOP 并存，终止 schema 不一致。
+  \item \risk\ \pathcode{INTEL_ENGINE=rules} 仍留在部分环境文档，但当前 controller/CLI 主路径不读取它。
+  \item \risk\ adaptive MCP 不暴露 \pathcode{record_technique}，但 controller 会根据真实 outcome 自动 harvest；不能只看 prompt 判断记忆是否写入。
+\end{enumerate}
+
+\vspace{0.7em}
+\begin{block}{审计结论}
+这类差异不会让系统“不能跑”，但会让实验分组、看板和论文叙述失真。DMAIC 的 Control 必须把这些语义写成数据契约测试。
+\end{block}
+\end{frame}
