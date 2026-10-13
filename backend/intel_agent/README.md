@@ -37,7 +37,7 @@ backend/intel_agent/
   用 RunGap、单调用真实收益和 UCB 审批查询。critic 提供解释，预算、checkpoint、饱和条件
   与 rules fallback 由确定性控制面执行。
 - **三层 fallback**：SDK 不可用 → 确定性 rules 轮次；结构化决策失败 → 规则兜底；相关性
-  在线过滤失败 → 退回规则分。KG/情报主流程互不阻断。
+  在线过滤失败 → 退回规则分。
 
 ## 两种采集模式
 
@@ -64,7 +64,7 @@ uv run python scripts/bandit_replay.py
 ## 运行前提
 
 ```bash
-uv sync --group agentsdk --group intelagent --group ctinexuskg --group web --group dev
+uv sync --group dev
 ```
 在 `.env` 配置 Anthropic 兼容端点（DeepSeek 或 GLM Coding Plan），见根目录 `.env.example`
 中 `INTEL_SDK_PROVIDER` / `DEEPSEEK_*` / `GLM_*` 与 `backend/intel_agent` 段的调参项。
@@ -108,45 +108,7 @@ uv run intel-agent latest                      # 从当前存储读取最近一�
 - 查询 API（供 Gradio Database）：`list_run_summaries` / `query_items` / `distinct_sources` / `run_count`（JSON store 有对等实现）。
 - 未配置 `INTEL_MONGO_*` 时回退 JSON，离线/测试零依赖。
 
-### 连接与导出
 
-| 场景 | 做法 |
-|------|------|
-| DBeaver / 插件 | Host `localhost`，Port **`27018`**，库 `intel_agent`，无鉴权（**不要**用 Host=`mongo`，也**不要**用 27017——那是本机 mongod） |
-| 容器内交互 | `docker exec -it sufe_saads_crewai-mongo-1 mongosh intel_agent` |
-| 全量 CSV | 在**宿主机** PowerShell/bash 跑 `mongoexport`（见根 `README.md`）；**不要**在 `mongosh>` 提示符里贴 `docker` 命令 |
-| UI | Gradio **Database** 页签：过滤查询 + 下载 CSV → `data/exports/` |
-| 存储位置 | Docker 命名卷 `mongo_data`；`data/mongo` 仅为旧 bind-mount 遗留，勿再挂载 |
+## 控制台与部署
 
-## Docker
-
-### 统一控制台（推荐）
-
-```bash
-docker compose up -d --build mongo web    # Gradio :8000 + Mongo :27018
-```
-
-统一镜像（`Dockerfile`）含 intel_agent + ctinexus_kg + Gradio + Node/`claude` CLI。compose 设置 `IS_SANDBOX=1`：Claude Code 禁止 root 下 `bypassPermissions`，无此变量会 `ProcessError` 并退化 rules fallback。
-
-### 批处理采集（profile）
-
-```bash
-docker compose up -d mongo
-docker compose run --rm intel-agent full --verbose
-docker compose run --rm intel-agent incremental --focus jailbreak --window-days 7
-```
-
-- 容器内 Mongo URI 由 compose 覆盖为 `mongodb://mongo:27017`；宿主机 `uv run` 用 `.env` 的 `mongodb://localhost:27018`。
-- `intel-agent` 挂 `profiles: ["intel"]`，普通 `up` 不会启动它。
-
-## 与 ctinexus_kg / Gradio 的边界
-
-- **禁止**本包 import `ctinexus_kg`；构图由 `backend/console` 在采集结束后调用。
-- `TraceSink.on_event` 供 Gradio 实时订阅；CLI `--verbose` 行为不变。
-- UI：`uv run web`（`backend/console`）— Collect / Trace / KG / Database。
-
-## 文档
-
-- 本 README · `backend/ctinexus_kg/README.md` · `backend/console/README.md`
-- 会话纪要：`docs/SESSION_2026-07-10_intel_agent_maturity.md`
-- 进展：`docs/PROJECT_PROGRESS.md`
+运行 `uv run web` 查看采集、情报态势、追踪、历史库与技巧库。完整启动与 Docker 操作见根目录 [README](../../README.md)。

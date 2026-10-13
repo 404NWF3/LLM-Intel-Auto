@@ -1,0 +1,4 @@
+/* 全局样式入口 — 按层次顺序 import */
+@import "../styles/base.css";
+@import "../styles/tokens.css";
+@import "../styles/animations.css";

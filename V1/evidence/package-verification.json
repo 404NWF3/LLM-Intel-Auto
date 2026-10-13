@@ -1,0 +1,26 @@
+{
+  "date": "2026-09-29",
+  "tag": "saads-community-v1.0.0",
+  "commit": "89edf8f9a8ac1b3711399f8f4272583ad83fb419",
+  "verification_kind": "Fresh isolated exported-source regression; no new network collection",
+  "source_integrity": "PASS: every included source file matches frozen Git blob",
+  "python_syntax": {
+    "status": "PASS",
+    "files": 207
+  },
+  "community_regression": {
+    "status": "PASS",
+    "tests": 47,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "deselected": 5
+  },
+  "junit_sha256": "7ae0a4373dcc3614c74a7fa545ed185012d8fc0aadc65cc42103e25a9a6e22c7",
+  "excluded_checks": [
+    "fresh live collection",
+    "fresh frontend build",
+    "new-machine production deployment"
+  ],
+  "source_editing_performed": false
+}

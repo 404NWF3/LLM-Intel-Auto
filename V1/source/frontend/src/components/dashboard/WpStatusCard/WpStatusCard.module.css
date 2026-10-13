@@ -1,0 +1,130 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  padding: 1.25rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+  transition: box-shadow 200ms, transform 200ms;
+}
+
+.card:hover {
+  box-shadow: 0 4px 16px rgba(23, 21, 18, 0.1);
+  transform: translateY(-1px);
+}
+
+.cardPending {
+  opacity: 0.65;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.titleGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.code {
+  font-size: 0.68rem;
+  font-family: var(--font-mono);
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.name {
+  font-family: var(--font-serif);
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0;
+}
+
+.statusBadge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.statusRunning {
+  background: rgba(53, 92, 70, 0.12);
+  color: var(--status-running);
+}
+
+.statusIdle {
+  background: rgba(23, 21, 18, 0.06);
+  color: var(--text-muted);
+}
+
+.statusWarning {
+  background: rgba(180, 83, 9, 0.1);
+  color: var(--status-warning, #b45309);
+}
+
+.statusError {
+  background: rgba(185, 28, 28, 0.1);
+  color: var(--status-error, #b91c1c);
+}
+
+.statusPending {
+  background: rgba(23, 21, 18, 0.05);
+  color: var(--text-faint);
+}
+
+.metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.metricRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 0.78rem;
+}
+
+.metricLabel {
+  color: var(--text-faint);
+}
+
+.metricValue {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 0.625rem;
+  border-top: 1px solid var(--line);
+  font-size: 0.72rem;
+  color: var(--text-faint);
+}
+
+.skeleton {
+  height: 0.75rem;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--surface-data) 25%, var(--surface-data-2) 50%, var(--surface-data) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease infinite;
+}
+
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}

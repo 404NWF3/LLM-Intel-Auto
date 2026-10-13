@@ -8,8 +8,9 @@ and deterministic query building for the rules-only fallback round.
 
 from __future__ import annotations
 
+from intel_agent.runtime.client import _setting
+
 import json
-import os
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -41,7 +42,7 @@ class SourceQuerySpec:
 
 
 def _env_int(name: str, default: int) -> int:
-    raw = os.getenv(name)
+    raw = _setting(name)
     if not raw:
         return default
     try:
@@ -51,7 +52,7 @@ def _env_int(name: str, default: int) -> int:
 
 
 def _env_float(name: str, default: float) -> float:
-    raw = os.getenv(name)
+    raw = _setting(name)
     if not raw:
         return default
     try:

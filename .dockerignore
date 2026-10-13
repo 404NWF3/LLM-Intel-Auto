@@ -4,8 +4,5 @@
 .venv
 __pycache__
 *.pyc
-ctinexus_output
 data
-run.log
-src/sufe_saads_crewai/run.log
-this-is-an-old-project
+模版

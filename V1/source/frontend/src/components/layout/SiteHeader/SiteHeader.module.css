@@ -1,0 +1,69 @@
+.active {
+  color: var(--text) !important;
+  font-weight: 600;
+}
+
+/* ── 移动端汉堡 ── */
+.menuBtn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  transition: background-color var(--ease);
+}
+
+.menuBtn:hover {
+  background: rgba(23, 21, 18, 0.06);
+}
+
+/* ── 移动端下拉菜单 ── */
+.mobileNav {
+  padding: 0.75rem 1rem 1.25rem;
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.mobileLink {
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+  padding: 0 0.75rem;
+  border-radius: var(--radius-sm);
+  color: var(--text-soft);
+  font-size: 1rem;
+  font-weight: 500;
+  transition: background-color var(--ease), color var(--ease);
+}
+
+.mobileLink:hover {
+  background: rgba(23, 21, 18, 0.05);
+  color: var(--text);
+  opacity: 1;
+}
+
+.mobileLinkActive {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.mobileCta {
+  margin-top: 0.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--line);
+}
+
+.mobileCta .button {
+  width: 100%;
+}
+
+/* ── 响应式：移动端显示汉堡，隐藏桌面端导航 ── */
+@media (max-width: 860px) {
+  .menuBtn {
+    display: flex;
+  }
+}

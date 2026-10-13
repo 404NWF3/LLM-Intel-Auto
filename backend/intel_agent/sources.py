@@ -8,8 +8,9 @@ the previously bare urllib calls.
 
 from __future__ import annotations
 
+from intel_agent.runtime.client import _setting
+
 import json
-import os
 import re
 import time
 import xml.etree.ElementTree as ET
@@ -488,7 +489,7 @@ def _fetch_json(
     if payload is not None:
         data = json.dumps(payload).encode("utf-8")
         headers["Content-Type"] = "application/json"
-    nvd_key = os.getenv("NVD_API_KEY")
+    nvd_key = _setting("NVD_API_KEY")
     if nvd_key and url.startswith(NVD_CVE_API_URL):
         headers["apiKey"] = nvd_key
     raw = _request_with_retry(url, headers, data, method, timeout_seconds, retries)

@@ -1,0 +1,11 @@
+{
+  "name": "llm_attack_relevance_skill",
+  "version": "0.1.0",
+  "entrypoint": "backend.agents.intel_agents.skills.llm_attack_relevance_skill.executor:run_llm_attack_relevance_skill",
+  "request_schema": "LLMAttackRelevanceRequest",
+  "response_schema": "LLMAttackRelevanceResult",
+  "default_judge_mode": "llm_required",
+  "default_window_sentences_before": 10,
+  "default_window_sentences_after": 10,
+  "adapters": ["simple_tool", "langchain", "crewai"]
+}

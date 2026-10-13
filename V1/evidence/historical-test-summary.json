@@ -1,0 +1,16 @@
+{
+  "kind": "Historical acceptance summary; not a new live collection run",
+  "release_date": "2026-09-16",
+  "regression_passed": 47,
+  "regression_deselected": 5,
+  "frontend_test_files_passed": 3,
+  "frontend_tests_passed": 4,
+  "frontend_production_build": "PASS",
+  "original_local_log_sha256": {
+    "community-regression.log": "da783853f479de2e5d91418c874ff918217a88e08616f84df66de718c97ff217",
+    "community-frontend-tests.log": "796e6923f0ed3dade2335e91fbefad6cdffb65503f1544cc19f6fe903ca26606",
+    "community-frontend-build.log": "84a3afa26fd3b85fbc70e7cbe131142d1a881debc6fe0b016361d709d0afb52f"
+  },
+  "raw_runtime_and_logs_included": false,
+  "scope_and_limitations": "See source/docs/community_v1_release.md and README_整合说明.md"
+}

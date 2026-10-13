@@ -1,0 +1,25 @@
+{
+  "dynamic_queries": true,
+  "runtime_config": {"community_filter_enabled": true, "llm_retry_attempts": 2},
+  "standardization_strategy": "llm_required",
+  "dedup_merge_strategy": "llm_required",
+  "source_registry_overrides": [
+    {"source_name": "github_issues", "enabled": true},
+    {"source_name": "hackernews", "enabled": true},
+    {"source_name": "discourse", "enabled": true}
+  ],
+  "source_plans": [
+    {"source_name": "github_issues", "source_type": "community", "priority": 1.0,
+     "queries": ["\"prompt injection\" repo:langchain-ai/langchain"],
+     "query_intent": "broad_recall", "query_provenance": "community_discovery",
+     "max_results": 10, "fetch_mode": "incremental", "time_window_days": 90},
+    {"source_name": "hackernews", "source_type": "community", "priority": 1.0,
+     "queries": ["prompt injection"], "query_intent": "broad_recall",
+     "query_provenance": "community_discovery", "max_results": 10,
+     "fetch_mode": "incremental", "time_window_days": 30},
+    {"source_name": "discourse", "source_type": "community", "priority": 1.0,
+     "queries": ["prompt injection"], "query_intent": "broad_recall",
+     "query_provenance": "community_discovery", "max_results": 10,
+     "fetch_mode": "incremental", "time_window_days": 90}
+  ]
+}

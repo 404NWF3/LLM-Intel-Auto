@@ -1,0 +1,89 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: 1.15rem;
+  border: 1px solid var(--line-soft);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.05);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.title {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.subtle {
+  color: var(--text-faint);
+  font-size: 0.78rem;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.95rem;
+  border: 1px solid var(--line-soft);
+  border-radius: 14px;
+  background: rgba(248, 250, 252, 0.78);
+}
+
+.cardTitle {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.kvList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin: 0;
+}
+
+.kvList div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+}
+
+.kvList dt {
+  color: var(--text-faint);
+  font-size: 0.73rem;
+}
+
+.kvList dd {
+  margin: 0;
+  color: var(--text-main);
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.5;
+  font-size: 0.84rem;
+}
+
+.emptyState {
+  padding: 1rem;
+  border: 1px dashed var(--line-soft);
+  border-radius: 14px;
+  color: var(--text-faint);
+  line-height: 1.6;
+}
+
+@media (max-width: 900px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}

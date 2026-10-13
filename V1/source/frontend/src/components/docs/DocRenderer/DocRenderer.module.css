@@ -1,0 +1,220 @@
+/* Prose typography for rendered markdown */
+.prose {
+  font-size: 0.9375rem;
+  line-height: 1.75;
+  color: var(--text);
+  max-width: 72ch;
+  word-break: break-word;
+}
+
+/* ── Headings ─────────────────────────────────────────────────────────── */
+.prose :is(h1, h2, h3, h4) {
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--text);
+  scroll-margin-top: 5rem;
+}
+
+.prose h1 {
+  font-size: 1.75rem;
+  margin: 0 0 var(--space-6);
+  border-bottom: 2px solid var(--line);
+  padding-bottom: var(--space-3);
+}
+
+.prose h2 {
+  font-size: 1.25rem;
+  margin: var(--space-10) 0 var(--space-4);
+  border-bottom: 1px solid var(--line);
+  padding-bottom: var(--space-2);
+}
+
+.prose h3 {
+  font-size: 1.05rem;
+  margin: var(--space-8) 0 var(--space-3);
+}
+
+.prose h4 {
+  font-size: 0.95rem;
+  margin: var(--space-6) 0 var(--space-2);
+  color: var(--text-soft);
+}
+
+/* ── Body text ────────────────────────────────────────────────────────── */
+.prose p {
+  margin: 0 0 var(--space-4);
+}
+
+.prose strong {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.prose em {
+  font-style: italic;
+}
+
+/* ── Links ────────────────────────────────────────────────────────────── */
+.prose a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-decoration-color: rgba(160, 106, 67, 0.35);
+  text-underline-offset: 2px;
+  transition: text-decoration-color var(--ease);
+}
+
+.prose a:hover {
+  text-decoration-color: var(--accent);
+}
+
+/* ── Lists ────────────────────────────────────────────────────────────── */
+.prose ul,
+.prose ol {
+  margin: 0 0 var(--space-4);
+  padding-left: var(--space-6);
+}
+
+.prose li {
+  margin-bottom: var(--space-1);
+}
+
+.prose li > ul,
+.prose li > ol {
+  margin-bottom: 0;
+  margin-top: var(--space-1);
+}
+
+/* ── Inline code ──────────────────────────────────────────────────────── */
+.prose :not(pre) > code {
+  font-family: var(--font-mono);
+  font-size: 0.82em;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+/* ── Code blocks ──────────────────────────────────────────────────────── */
+.prose pre {
+  margin: 0 0 var(--space-5);
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-xs);
+  background: #1e1b18;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  overflow-x: auto;
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+
+.prose pre code {
+  font-family: var(--font-mono);
+  font-size: inherit;
+  padding: 0;
+  background: none;
+  border: none;
+  color: #e8e0d4;
+  white-space: pre;
+}
+
+/* rehype-highlight token colors (github-dark palette)
+   Use :global() because hljs classes come from dangerouslySetInnerHTML,
+   not CSS modules, so they must NOT be scoped. */
+.prose :global(.hljs-keyword),
+.prose :global(.hljs-selector-tag),
+.prose :global(.hljs-built_in),
+.prose :global(.hljs-name) {
+  color: #f97583;
+}
+
+.prose :global(.hljs-string),
+.prose :global(.hljs-attr) {
+  color: #9ecbff;
+}
+
+.prose :global(.hljs-number),
+.prose :global(.hljs-literal) {
+  color: #79b8ff;
+}
+
+.prose :global(.hljs-comment) {
+  color: #6a737d;
+  font-style: italic;
+}
+
+.prose :global(.hljs-title),
+.prose :global(.hljs-section),
+.prose :global(.hljs-type) {
+  color: #b392f0;
+}
+
+.prose :global(.hljs-variable),
+.prose :global(.hljs-template-variable) {
+  color: #ffab70;
+}
+
+.prose :global(.hljs-punctuation),
+.prose :global(.hljs-meta) {
+  color: #e8e0d4;
+}
+
+/* ── Blockquote ────────────────────────────────────────────────────────── */
+.prose blockquote {
+  margin: 0 0 var(--space-4);
+  padding: var(--space-3) var(--space-5);
+  border-left: 3px solid var(--accent);
+  background: var(--accent-soft);
+  border-radius: 0 var(--radius-xs) var(--radius-xs) 0;
+  color: var(--text-soft);
+}
+
+.prose blockquote p:last-child {
+  margin-bottom: 0;
+}
+
+/* ── Tables ───────────────────────────────────────────────────────────── */
+.prose table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0 0 var(--space-5);
+  font-size: 0.87rem;
+}
+
+.prose th {
+  text-align: left;
+  font-weight: 600;
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-2);
+  border-bottom: 2px solid var(--line-strong);
+  color: var(--text);
+}
+
+.prose td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+  color: var(--text-soft);
+}
+
+.prose tr:last-child td {
+  border-bottom: none;
+}
+
+.prose tr:nth-child(even) td {
+  background: var(--bg-soft);
+}
+
+/* ── Horizontal rule ──────────────────────────────────────────────────── */
+.prose hr {
+  border: none;
+  border-top: 1px solid var(--line);
+  margin: var(--space-8) 0;
+}
+
+/* ── Reduced motion ───────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .prose a {
+    transition: none;
+  }
+}

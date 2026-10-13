@@ -1,0 +1,47 @@
+<mxfile host="app.diagrams.net" modified="2026-04-12T00:00:00.000Z" agent="GPT-5.4 Thinking" version="24.7.17">
+  <diagram id="saads-arch-02" name="Page-1">
+    <mxGraphModel dx="1600" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="900" math="0" shadow="0" background="#FFFFFF">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <mxCell id="browser" value="用户浏览器&#xa;(Next.js 前端，端口 3000)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=2;fontColor=#000000;fontStyle=1;fontSize=20;align=center;verticalAlign=middle;spacing=12;" vertex="1" parent="1">
+          <mxGeometry x="430" y="40" width="740" height="90" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="backend" value="后端 API 服务&#xa;FastAPI + Uvicorn（端口 8000）&#xa;├── WP1-1 情报采集与处理模块（/api/wp11/）&#xa;├── WP1-2 红队测试模块（/api/wp12/）&#xa;├── 哨兵模块（/api/sentinel/）&#xa;└── 统计与告警接口（/api/stats, /api/alerts）" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=2;fontColor=#000000;fontStyle=1;fontSize=18;align=left;verticalAlign=middle;spacingLeft=18;spacingTop=12;spacingBottom=12;" vertex="1" parent="1">
+          <mxGeometry x="300" y="210" width="1000" height="220" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="postgres" value="PostgreSQL&#xa;关系数据库&#xa;（端口 5432）" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=2;fontColor=#000000;fontStyle=1;fontSize=18;align=center;verticalAlign=middle;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="360" y="520" width="260" height="110" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="qdrant" value="Qdrant&#xa;向量数据库&#xa;（端口 6333）" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=2;fontColor=#000000;fontStyle=1;fontSize=18;align=center;verticalAlign=middle;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="980" y="520" width="260" height="110" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="llm" value="外部 LLM API 服务（云端）&#xa;DashScope（Qwen） / BigModel（GLM） / 其他" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=2;fontColor=#000000;fontStyle=1;fontSize=18;align=center;verticalAlign=middle;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="430" y="710" width="740" height="90" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="edge1" value="HTTP REST / WebSocket" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=2;fontColor=#000000;fontSize=16;endArrow=block;endFill=1;" edge="1" parent="1" source="browser" target="backend">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="edge2" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=2;endArrow=block;endFill=1;" edge="1" parent="1" source="backend" target="postgres">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="edge3" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=2;endArrow=block;endFill=1;" edge="1" parent="1" source="backend" target="qdrant">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="edge4" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=2;endArrow=block;endFill=1;" edge="1" parent="1" source="backend" target="llm">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

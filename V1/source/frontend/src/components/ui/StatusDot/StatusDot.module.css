@@ -1,0 +1,42 @@
+.dot {
+  display: inline-block;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ── 尺寸 ── */
+.size-sm {
+  width: 0.5rem;
+  height: 0.5rem;
+}
+.size-md {
+  width: 0.625rem;
+  height: 0.625rem;
+}
+.size-lg {
+  width: 0.75rem;
+  height: 0.75rem;
+}
+
+/* ── 状态色 ── */
+.running {
+  background: var(--status-running);
+  animation: pulse-dot var(--duration-pulse) ease-in-out infinite;
+}
+
+.idle {
+  background: var(--status-idle);
+}
+
+.warning {
+  background: var(--status-warning);
+}
+
+.error {
+  background: var(--status-error);
+}
+
+.pending {
+  background: var(--status-pending);
+  opacity: 0.5;
+}

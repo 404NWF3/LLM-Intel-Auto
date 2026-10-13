@@ -1,0 +1,29 @@
+{
+  "default": {
+    "planning": ["balanced", "cheap_fast", "fallback"],
+    "reflection": ["balanced", "cheap_fast", "fallback"],
+    "standardization": ["balanced", "cheap_fast", "fallback"],
+    "bom_resolution": ["cheap_fast", "balanced", "fallback"],
+    "dedup_merge": ["balanced", "cheap_fast", "fallback"],
+    "dedup_adjudication": ["balanced", "fallback", "cheap_fast"],
+    "coverage": ["cheap_fast", "balanced", "fallback"]
+  },
+  "cost_saver": {
+    "planning": ["cheap_fast", "balanced", "fallback"],
+    "reflection": ["cheap_fast", "balanced", "fallback"],
+    "standardization": ["cheap_fast", "balanced", "fallback"],
+    "bom_resolution": ["cheap_fast", "fallback", "balanced"],
+    "dedup_merge": ["cheap_fast", "balanced", "fallback"],
+    "dedup_adjudication": ["cheap_fast", "balanced", "fallback"],
+    "coverage": ["cheap_fast", "balanced", "fallback"]
+  },
+  "reliability_first": {
+    "planning": ["balanced", "fallback", "cheap_fast"],
+    "reflection": ["balanced", "fallback", "cheap_fast"],
+    "standardization": ["balanced", "fallback", "cheap_fast"],
+    "bom_resolution": ["balanced", "fallback", "cheap_fast"],
+    "dedup_merge": ["balanced", "fallback", "cheap_fast"],
+    "dedup_adjudication": ["balanced", "fallback", "cheap_fast"],
+    "coverage": ["balanced", "fallback", "cheap_fast"]
+  }
+}

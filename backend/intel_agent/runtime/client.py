@@ -1,7 +1,7 @@
 """claude-agent-sdk runtime factory for Anthropic-compatible endpoints.
 
 Providers (INTEL_SDK_PROVIDER, auto-detected when unset):
-- deepseek: https://api.deepseek.com/anthropic (deepseek-v4-pro / deepseek-v4-flash)
+- deepseek: https://api.deepseek.com/anthropic (DeepSeek V4.1 Flash: deepseek-flash)
 - glm:      https://open.bigmodel.cn/api/anthropic (requires an active Coding Plan)
 An explicit ANTHROPIC_BASE_URL + ANTHROPIC_AUTH_TOKEN pair overrides both.
 
@@ -40,8 +40,8 @@ PROVIDERS: dict[str, ProviderSpec] = {
         name="deepseek",
         base_url=DEEPSEEK_ANTHROPIC_BASE_URL,
         key_var="DEEPSEEK_API_KEY",
-        default_main_model="deepseek-v4-pro",
-        default_fast_model="deepseek-v4-flash",
+        default_main_model="deepseek-flash",
+        default_fast_model="deepseek-flash",
         model_var="DEEPSEEK_MODEL",
         fast_model_var="DEEPSEEK_FAST_MODEL",
     ),

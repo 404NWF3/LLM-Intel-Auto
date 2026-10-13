@@ -19,17 +19,14 @@ from .topics import EXTENDED_SECURITY_TOPICS
 
 DEFAULT_INTEL_RUN_DIR = Path("data") / "intel_runs"
 LATEST_INDEX_NAME = "latest.json"
-DEFAULT_KG_STORE_DIR = Path("data") / "intel_agent" / "knowledge_graphs"
 
 
 class JsonIntelRunStore:
     def __init__(
         self,
         root_dir: str | Path = DEFAULT_INTEL_RUN_DIR,
-        kg_dir: str | Path = DEFAULT_KG_STORE_DIR,
     ) -> None:
         self.root_dir = Path(root_dir)
-        self.kg_dir = Path(kg_dir)
 
     def run_path(self, run_id: str) -> Path:
         return self.root_dir / f"{_safe_run_id(run_id)}.json"
@@ -253,85 +250,6 @@ class JsonIntelRunStore:
             if name:
                 sources.add(str(name))
         return sorted(sources)
-
-    def save_knowledge_graph(
-        self,
-        record: dict[str, Any],
-        graph: dict[str, Any] | None = None,
-    ) -> str:
-        item_id = str(record.get("item_id") or "").strip()
-        if not item_id:
-            raise ValueError("record.item_id is required")
-        self.kg_dir.mkdir(parents=True, exist_ok=True)
-        saved_at = _utcnow_iso()
-        doc = {
-            "_id": item_id,
-            "item_id": item_id,
-            "run_id": record.get("run_id"),
-            "status": record.get("status"),
-            "source_name": record.get("source_name"),
-            "source_uri": record.get("source_uri"),
-            "triplet_count": record.get("triplet_count", 0),
-            "entity_count": record.get("entity_count", 0),
-            "predicted_link_count": record.get("predicted_link_count", 0),
-            "ctinexus_json_path": record.get("ctinexus_json_path"),
-            "graph_html_path": record.get("graph_html_path"),
-            "model": record.get("model"),
-            "embedding_model": record.get("embedding_model"),
-            "error": record.get("error"),
-            "record": record,
-            "graph": graph,
-            "saved_at": saved_at,
-        }
-        path = self.kg_dir / f"{_safe_run_id(item_id)}.json"
-        path.write_text(json.dumps(doc, ensure_ascii=False, indent=2), encoding="utf-8")
-        return item_id
-
-    def list_knowledge_graphs(
-        self,
-        *,
-        status: str | None = None,
-        run_id: str | None = None,
-        item_id: str | None = None,
-        limit: int = 100,
-    ) -> list[dict[str, Any]]:
-        if not self.kg_dir.exists():
-            return []
-        status_f = (status or "").strip()
-        run_f = (run_id or "").strip()
-        item_f = (item_id or "").strip()
-        rows: list[dict[str, Any]] = []
-        paths = sorted(self.kg_dir.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True)
-        for path in paths:
-            try:
-                doc = json.loads(path.read_text(encoding="utf-8"))
-            except (OSError, json.JSONDecodeError):
-                continue
-            if status_f and str(doc.get("status") or "") != status_f:
-                continue
-            if run_f and str(doc.get("run_id") or "") != run_f:
-                continue
-            if item_f and str(doc.get("item_id") or "") != item_f:
-                continue
-            slim = {k: v for k, v in doc.items() if k != "graph"}
-            rows.append(slim)
-            if len(rows) >= max(1, int(limit)):
-                break
-        return rows
-
-    def load_knowledge_graph(self, item_id: str) -> dict[str, Any] | None:
-        path = self.kg_dir / f"{_safe_run_id(item_id)}.json"
-        if not path.exists():
-            return None
-        try:
-            return json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            return None
-
-    def knowledge_graph_count(self) -> int:
-        if not self.kg_dir.exists():
-            return 0
-        return len(list(self.kg_dir.glob("*.json")))
 
     def get_item(self, item_id: str) -> dict[str, Any] | None:
         for doc in self.query_items(limit=10_000):

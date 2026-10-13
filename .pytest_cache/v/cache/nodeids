@@ -49,6 +49,7 @@
   "backend/intel_agent/tests/test_analysis.py::test_merge_batch_computes_novelty_noise_duplicate",
   "backend/intel_agent/tests/test_analysis.py::test_operator_signature_stable",
   "backend/intel_agent/tests/test_analysis.py::test_quota_open_gaps_and_coverage",
+  "backend/intel_agent/tests/test_config.py::test_dotenv_controls_collection_and_environment_takes_precedence",
   "backend/intel_agent/tests/test_controller.py::test_controller_end_to_end_offline",
   "backend/intel_agent/tests/test_controller.py::test_controller_falls_back_when_agent_unavailable",
   "backend/intel_agent/tests/test_loop.py::test_adaptive_mcp_surface_contains_only_the_planned_whitelist",

@@ -1,0 +1,628 @@
+<mxfile host="app.diagrams.net" modified="2026-04-12T00:00:00.000Z" version="24.7.17">
+  <diagram id="module-call-rel" name="Module Call Relationship">
+    <mxGraphModel dx="1800" dy="1300" grid="0" gridSize="10" guides="1" tooltips="1"
+      connect="1" arrows="1" fold="1" page="1" pageScale="1"
+      pageWidth="1700" pageHeight="1230" math="0" shadow="0" background="#FFFFFF">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- ══════════════════════════════════════
+             TITLE
+        ══════════════════════════════════════ -->
+        <mxCell id="title" value="SAADS 模块间调用关系（包图）"
+          style="text;html=1;fontStyle=1;fontSize=17;align=center;verticalAlign=middle;fontColor=#1E293B;"
+          vertex="1" parent="1">
+          <mxGeometry x="520" y="8" width="660" height="32" as="geometry" />
+        </mxCell>
+
+        <!-- ══════════════════════════════════════
+             LAYER 1 · FRONTEND
+        ══════════════════════════════════════ -->
+        <mxCell id="fe_bg" value="«layer»  Frontend  (Browser / B-S)"
+          style="swimlane;startSize=26;fillColor=#DBEAFE;strokeColor=#1D4ED8;strokeWidth=2;
+                 fontStyle=1;fontSize=13;fontColor=#1E3A8A;rounded=0;html=1;"
+          vertex="1" parent="1">
+          <mxGeometry x="530" y="50" width="640" height="76" as="geometry" />
+        </mxCell>
+        <mxCell id="fe_next" value="Next.js 16 + React 19"
+          style="rounded=0;fillColor=#EFF6FF;strokeColor=#3B82F6;strokeWidth=1.5;fontSize=12;fontStyle=1;html=1;"
+          vertex="1" parent="1">
+          <mxGeometry x="548" y="82" width="220" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="fe_ts" value="TypeScript / SWR / SSE Client"
+          style="rounded=0;fillColor=#EFF6FF;strokeColor=#3B82F6;strokeWidth=1.5;fontSize=12;html=1;"
+          vertex="1" parent="1">
+          <mxGeometry x="790" y="82" width="254" height="32" as="geometry" />
+        </mxCell>
+
+        <!-- ══════════════════════════════════════
+             LAYER 2 · API ROUTERS
+        ══════════════════════════════════════ -->
+        <mxCell id="api_bg" value="«layer»  Backend API Layer  ( FastAPI + Uvicorn )"
+          style="swimlane;startSize=26;fillColor=#EDE9FE;strokeColor=#6D28D9;strokeWidth=2;
+                 fontStyle=1;fontSize=13;fontColor=#4C1D95;rounded=0;html=1;"
+          vertex="1" parent="1">
+          <mxGeometry x="60" y="146" width="1580" height="88" as="geometry" />
+        </mxCell>
+        <mxCell id="wp11_router" value="wp11_router&#xa;/api/wp11/*"
+          style="rounded=0;fillColor=#F5F3FF;strokeColor=#7C3AED;strokeWidth=1.5;fontSize=12;fontStyle=1;html=1;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="220" y="178" width="196" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="wp12_router" value="wp12_router&#xa;/api/wp12/*"
+          style="rounded=0;fillColor=#F5F3FF;strokeColor=#7C3AED;strokeWidth=1.5;fontSize=12;fontStyle=1;html=1;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="990" y="178" width="196" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="sentinel_router" value="sentinel_router  /health  /config"
+          style="rounded=0;fillColor=#F5F3FF;strokeColor=#7C3AED;strokeWidth=1.5;fontSize=11;html=1;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="1280" y="178" width="228" height="44" as="geometry" />
+        </mxCell>
+
+        <!-- ══════════════════════════════════════
+             PACKAGE · WP1-1
+        ══════════════════════════════════════ -->
+        <mxCell id="wp11_pkg" value="«package»  WP1-1  Intel Agent System"
+          style="swimlane;startSize=28;fillColor=#FFF7ED;strokeColor=#C2410C;strokeWidth=2;
+                 fontStyle=1;fontSize=13;fontColor=#7C2D12;rounded=0;html=1;"
+          vertex="1" parent="1">
+          <mxGeometry x="20" y="256" width="880" height="718" as="geometry" />
+        </mxCell>
+
+        <!-- Orchestrator row -->
+        <mxCell id="runtime" value="Phase1GraphRuntime&#xa;(LangGraph Orchestrator)"
+          style="rounded=0;fillColor=#FFEDD5;strokeColor=#EA580C;strokeWidth=2;fontSize=12;fontStyle=1;html=1;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="40" y="300" width="180" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="llm_factory" value="LlmClientFactory&#xa;(Model Pool Router)"
+          style="rounded=0;fillColor=#FFEDD5;strokeColor=#EA580C;strokeWidth=2;fontSize=12;fontStyle=1;html=1;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="650" y="300" width="190" height="46" as="geometry" />
+        </mxCell>
+
+        <!-- Agents sub-group -->
+        <mxCell id="agents_grp" value="«module group»  Agents"
+          style="swimlane;startSize=24;fillColor=#FEF3C7;strokeColor=#D97706;strokeWidth=1.5;
+                 fontStyle=1;fontSize=12;fontColor=#78350F;rounded=0;html=1;"
+          vertex="1" parent="1">
+          <mxGeometry x="240" y="368" width="260" height="590" as="geometry" />
+        </mxCell>
+        <mxCell id="a_supervisor" value="SupervisorAgent&#xa;(LLM Planning)"
+          style="rounded=0;fillColor=#FFFBEB;strokeColor=#F59E0B;strokeWidth=1.5;fontSize=11;html=1;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="264" y="406" width="212" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="a_reflect" value="SearchReflectionAgent&#xa;(Query Rewrite)"
+          style="rounded=0;fillColor=#FFFBEB;strokeColor=#F59E0B;strokeWidth=1.5;fontSize=11;html=1;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="264" y="460" width="212" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="a_std" value="StandardizerAgent&#xa;(Raw → Canonical)"
+          style="rounded=0;fillColor=#FFFBEB;strokeColor=#F59E0B;strokeWidth=1.5;fontSize=11;html=1;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="264" y="514" width="212" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="a_dedup" value="DedupMergeAgent&#xa;(Semantic Dedup)"
+          style="rounded=0;fillColor=#FFFBEB;strokeColor=#F59E0B;strokeWidth=1.5;fontSize=11;html=1;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="264" y="568" width="212" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="dedup_tools" value="DedupTools&#xa;SimHash/MinHash/Embed"
+          style="rounded=0;fillColor=#FFFBEB;strokeColor=#F59E0B;strokeWidth=1.5;fontSize=10;html=1;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="730" y="568" width="130" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="a_adjudicator" value="DedupAdjudicatorAgent&#xa;(LLM 2nd-pass Review)"
+          style="rounded=0;fillColor=#FFFBEB;strokeColor=#F59E0B;strokeWidth=1.5;fontSize=11;html=1;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="264" y="622" width="212" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="a_bom" value="BomMapperAgent&#xa;(Component Extraction)"
+          style="rounded=0;fillColor=#FFFBEB;strokeColor=#F59E0B;strokeWidth=1.5;fontSize=11;html=1;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="264" y="676" width="212" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="a_bom_reviewer" value="BomResolutionReviewerAgent&#xa;(Ambiguity Review)"
+          style="rounded=0;fillColor=#FFFBEB;strokeColor=#F59E0B;strokeWidth=1.5;fontSize=10;html=1;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="264" y="730" width="212" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="a_stix" value="StixGraph (subgraph)&#xa;(STIX 2.1 Builder)"
+          style="rounded=0;fillColor=#FFFBEB;strokeColor=#F59E0B;strokeWidth=1.5;fontSize=11;html=1;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="264" y="784" width="212" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="a_coverage" value="CoverageAnalystAgent&#xa;(Gap Detection)"
+          style="rounded=0;fillColor=#FFFBEB;strokeColor=#F59E0B;strokeWidth=1.5;fontSize=11;html=1;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="264" y="838" width="212" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="a_alert" value="AlertGeneratorNode&#xa;(Weak Signal Mining)"
+          style="rounded=0;fillColor=#FFFBEB;strokeColor=#F59E0B;strokeWidth=1.5;fontSize=11;html=1;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="264" y="892" width="212" height="42" as="geometry" />
+        </mxCell>
+
+        <!-- Services sub-group -->
+        <mxCell id="services_grp" value="«module group»  Services"
+          style="swimlane;startSize=24;fillColor=#F0FDF4;strokeColor=#15803D;strokeWidth=1.5;
+                 fontStyle=1;fontSize=12;fontColor=#14532D;rounded=0;html=1;"
+          vertex="1" parent="1">
+          <mxGeometry x="510" y="368" width="370" height="590" as="geometry" />
+        </mxCell>
+        <mxCell id="svc_dedup" value="DeduplicMemoryService&#xa;(Attack Signature Cache)"
+          style="rounded=0;fillColor=#DCFCE7;strokeColor=#16A34A;strokeWidth=1.5;fontSize=11;html=1;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="530" y="568" width="184" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="svc_bom" value="BomResolutionService&#xa;(3-Stage Component Mapping)"
+          style="rounded=0;fillColor=#DCFCE7;strokeColor=#16A34A;strokeWidth=1.5;fontSize=11;html=1;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="530" y="676" width="184" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="svc_coverage" value="CoverageReadModelService&#xa;(Taxonomy × Component Matrix)"
+          style="rounded=0;fillColor=#DCFCE7;strokeColor=#16A34A;strokeWidth=1.5;fontSize=10;html=1;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="530" y="838" width="184" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="svc_ingest" value="IngestionService&#xa;(Raw Record Pipeline)"
+          style="rounded=0;fillColor=#DCFCE7;strokeColor=#16A34A;strokeWidth=1.5;fontSize=11;html=1;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="530" y="406" width="184" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="svc_confidence" value="ConfidenceScoringService&#xa;(Score + Novelty)"
+          style="rounded=0;fillColor=#DCFCE7;strokeColor=#16A34A;strokeWidth=1.5;fontSize=11;html=1;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="530" y="460" width="184" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="svc_merge" value="AttackMergeService&#xa;(Merge Strategy)"
+          style="rounded=0;fillColor=#DCFCE7;strokeColor=#16A34A;strokeWidth=1.5;fontSize=11;html=1;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="530" y="514" width="184" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="svc_source" value="SourceHealthService&#xa;(Quality Tracking)"
+          style="rounded=0;fillColor=#DCFCE7;strokeColor=#16A34A;strokeWidth=1.5;fontSize=11;html=1;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="530" y="622" width="184" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="svc_stix" value="StixBundleService&#xa;(STIX Serialization)"
+          style="rounded=0;fillColor=#DCFCE7;strokeColor=#16A34A;strokeWidth=1.5;fontSize=11;html=1;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="530" y="784" width="184" height="42" as="geometry" />
+        </mxCell>
+
+        <!-- ══════════════════════════════════════
+             PACKAGE · WP1-2
+        ══════════════════════════════════════ -->
+        <mxCell id="wp12_pkg" value="«package»  WP1-2  Security Eval System"
+          style="swimlane;startSize=28;fillColor=#F0FDF4;strokeColor=#166534;strokeWidth=2;
+                 fontStyle=1;fontSize=13;fontColor=#14532D;rounded=0;html=1;"
+          vertex="1" parent="1">
+          <mxGeometry x="908" y="256" width="496" height="502" as="geometry" />
+        </mxCell>
+        <mxCell id="sg_graph" value="SecurityEvalGraph&#xa;(7-node LangGraph)"
+          style="rounded=0;fillColor=#DCFCE7;strokeColor=#16A34A;strokeWidth=2;fontSize=12;fontStyle=1;html=1;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="932" y="300" width="222" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="sg_threat" value="ThreatUnderstandingEngine&#xa;(Attack Analysis)"
+          style="rounded=0;fillColor=#F0FDF4;strokeColor=#22C55E;strokeWidth=1.5;fontSize=11;html=1;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="932" y="380" width="222" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="sg_testpkg" value="TestPackageGenerationEngine&#xa;(Script Generation)"
+          style="rounded=0;fillColor=#F0FDF4;strokeColor=#22C55E;strokeWidth=1.5;fontSize=11;html=1;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="932" y="434" width="222" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="sg_feed" value="Wp12FeedService&#xa;(Attack Feed Reader)"
+          style="rounded=0;fillColor=#F0FDF4;strokeColor=#22C55E;strokeWidth=1.5;fontSize=11;html=1;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="932" y="488" width="222" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="sg_validate" value="ValidationNode&#xa;(Package Validation)"
+          style="rounded=0;fillColor=#F0FDF4;strokeColor=#22C55E;strokeWidth=1.5;fontSize=11;html=1;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="932" y="542" width="222" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="sg_persist" value="PersistenceNode&#xa;(Artifact Storage)"
+          style="rounded=0;fillColor=#F0FDF4;strokeColor=#22C55E;strokeWidth=1.5;fontSize=11;html=1;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="932" y="596" width="222" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="sg_intel" value="IngestIntelNode + NormalizeIntelNode&#xa;(Intel Ingestion)"
+          style="rounded=0;fillColor=#F0FDF4;strokeColor=#22C55E;strokeWidth=1.5;fontSize=10;html=1;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="932" y="650" width="222" height="42" as="geometry" />
+        </mxCell>
+
+        <!-- ══════════════════════════════════════
+             EXTERNAL · LLM CLOUD APIs
+        ══════════════════════════════════════ -->
+        <mxCell id="llm_ext" value="«external»  LLM Cloud APIs"
+          style="swimlane;startSize=24;fillColor=#FEFCE8;strokeColor=#CA8A04;strokeWidth=2;
+                 fontStyle=3;fontSize=12;fontColor=#713F12;rounded=0;html=1;
+                 dashed=1;dashPattern=8 4;"
+          vertex="1" parent="1">
+          <mxGeometry x="1444" y="256" width="230" height="220" as="geometry" />
+        </mxCell>
+        <mxCell id="llm_ds" value="DashScope&#xa;Qwen3.5 / Qwen3"
+          style="rounded=0;fillColor=#FEF9C3;strokeColor=#EAB308;strokeWidth=1.5;fontSize=11;html=1;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="1454" y="292" width="208" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="llm_glm" value="BigModel&#xa;GLM-4 / GLM-5"
+          style="rounded=0;fillColor=#FEF9C3;strokeColor=#EAB308;strokeWidth=1.5;fontSize=11;html=1;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="1454" y="340" width="208" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="llm_other" value="MiniMax  /  DeepSeek"
+          style="rounded=0;fillColor=#FEF9C3;strokeColor=#EAB308;strokeWidth=1.5;fontSize=11;html=1;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="1454" y="388" width="208" height="38" as="geometry" />
+        </mxCell>
+
+        <!-- Threat Intel APIs -->
+        <mxCell id="intel_ext" value="«external»  Threat Intel APIs"
+          style="swimlane;startSize=24;fillColor=#FFF1F2;strokeColor=#BE123C;strokeWidth=2;
+                 fontStyle=3;fontSize=12;fontColor=#881337;rounded=0;html=1;
+                 dashed=1;dashPattern=8 4;"
+          vertex="1" parent="1">
+          <mxGeometry x="1444" y="500" width="230" height="200" as="geometry" />
+        </mxCell>
+        <mxCell id="intel_nvd" value="NVD  (CVE Database)"
+          style="rounded=0;fillColor=#FFE4E6;strokeColor=#F43F5E;strokeWidth=1.5;fontSize=11;html=1;"
+          vertex="1" parent="1">
+          <mxGeometry x="1454" y="536" width="208" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="intel_gh" value="GitHub  (PoC Scanner)"
+          style="rounded=0;fillColor=#FFE4E6;strokeColor=#F43F5E;strokeWidth=1.5;fontSize=11;html=1;"
+          vertex="1" parent="1">
+          <mxGeometry x="1454" y="580" width="208" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="intel_vt" value="VirusTotal / AlienVault OTX"
+          style="rounded=0;fillColor=#FFE4E6;strokeColor=#F43F5E;strokeWidth=1.5;fontSize=11;html=1;"
+          vertex="1" parent="1">
+          <mxGeometry x="1454" y="624" width="208" height="34" as="geometry" />
+        </mxCell>
+
+        <!-- ══════════════════════════════════════
+             LAYER 4 · DATA ACCESS
+        ══════════════════════════════════════ -->
+        <mxCell id="repo_pkg" value="«layer»  Data Access Layer  ( Repository Pattern + Unit of Work )"
+          style="swimlane;startSize=26;fillColor=#F1F5F9;strokeColor=#475569;strokeWidth=2;
+                 fontStyle=1;fontSize=13;fontColor=#1E293B;rounded=0;html=1;"
+          vertex="1" parent="1">
+          <mxGeometry x="20" y="1002" width="1380" height="84" as="geometry" />
+        </mxCell>
+        <mxCell id="repo_attack" value="AttackRepository"
+          style="rounded=0;fillColor=#E2E8F0;strokeColor=#64748B;strokeWidth=1.5;fontSize=11;html=1;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="36" y="1038" width="192" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="repo_component" value="ComponentRepository"
+          style="rounded=0;fillColor=#E2E8F0;strokeColor=#64748B;strokeWidth=1.5;fontSize=11;html=1;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="244" y="1038" width="192" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="repo_stix" value="StixRepository"
+          style="rounded=0;fillColor=#E2E8F0;strokeColor=#64748B;strokeWidth=1.5;fontSize=11;html=1;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="452" y="1038" width="192" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="repo_read" value="ReadModelRepository"
+          style="rounded=0;fillColor=#E2E8F0;strokeColor=#64748B;strokeWidth=1.5;fontSize=11;html=1;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="660" y="1038" width="192" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="repo_source" value="SourceRepository"
+          style="rounded=0;fillColor=#E2E8F0;strokeColor=#64748B;strokeWidth=1.5;fontSize=11;html=1;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="868" y="1038" width="192" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="repo_governance" value="GovernanceRepository"
+          style="rounded=0;fillColor=#E2E8F0;strokeColor=#64748B;strokeWidth=1.5;fontSize=11;html=1;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="1076" y="1038" width="208" height="36" as="geometry" />
+        </mxCell>
+
+        <!-- ══════════════════════════════════════
+             LAYER 5 · DATABASES
+        ══════════════════════════════════════ -->
+        <mxCell id="db_pg" value="PostgreSQL / SQLite&#xa;(Relational)"
+          style="shape=cylinder3;whiteSpace=wrap;html=1;fillColor=#E2E8F0;strokeColor=#334155;
+                 strokeWidth=2;fontSize=12;fontStyle=1;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="106" y="1118" width="196" height="68" as="geometry" />
+        </mxCell>
+        <mxCell id="db_qdrant" value="Qdrant&#xa;(Vector DB)"
+          style="shape=cylinder3;whiteSpace=wrap;html=1;fillColor=#EDE9FE;strokeColor=#6D28D9;
+                 strokeWidth=2;fontSize=12;fontStyle=1;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="352" y="1118" width="168" height="68" as="geometry" />
+        </mxCell>
+
+        <!-- ══════════════════════════════════════
+             EDGES — Layer calls
+        ══════════════════════════════════════ -->
+
+        <!-- Frontend → API Routers -->
+        <mxCell id="e01" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=1.8;strokeColor=#1D4ED8;endArrow=open;endFill=0;html=1;"
+          edge="1" source="fe_next" target="wp11_router" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e02" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=1.8;strokeColor=#1D4ED8;endArrow=open;endFill=0;html=1;"
+          edge="1" source="fe_ts" target="wp12_router" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Routers → Orchestrators -->
+        <mxCell id="e03" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=1.8;strokeColor=#6D28D9;endArrow=open;endFill=0;html=1;"
+          edge="1" source="wp11_router" target="runtime" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e04" style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=1.8;strokeColor=#6D28D9;endArrow=open;endFill=0;html=1;"
+          edge="1" source="wp12_router" target="sg_graph" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Runtime → Agents -->
+        <mxCell id="e10" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;strokeWidth=1.5;strokeColor=#C2410C;endArrow=open;endFill=0;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;"
+          edge="1" source="runtime" target="a_supervisor" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e11" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;strokeWidth=1.5;strokeColor=#C2410C;endArrow=open;endFill=0;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;"
+          edge="1" source="runtime" target="a_reflect" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e12" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;strokeWidth=1.5;strokeColor=#C2410C;endArrow=open;endFill=0;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;"
+          edge="1" source="runtime" target="a_std" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e13" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;strokeWidth=1.5;strokeColor=#C2410C;endArrow=open;endFill=0;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;"
+          edge="1" source="runtime" target="a_dedup" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e14" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;strokeWidth=1.5;strokeColor=#C2410C;endArrow=open;endFill=0;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;"
+          edge="1" source="runtime" target="a_adjudicator" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e15" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;strokeWidth=1.5;strokeColor=#C2410C;endArrow=open;endFill=0;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;"
+          edge="1" source="runtime" target="a_bom" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e16" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;strokeWidth=1.5;strokeColor=#C2410C;endArrow=open;endFill=0;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;"
+          edge="1" source="runtime" target="a_bom_reviewer" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e17" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;strokeWidth=1.5;strokeColor=#C2410C;endArrow=open;endFill=0;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;"
+          edge="1" source="runtime" target="a_stix" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e18" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;strokeWidth=1.5;strokeColor=#C2410C;endArrow=open;endFill=0;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;"
+          edge="1" source="runtime" target="a_coverage" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e19" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;strokeWidth=1.5;strokeColor=#C2410C;endArrow=open;endFill=0;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;"
+          edge="1" source="runtime" target="a_alert" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Agents → LlmClientFactory -->
+        <mxCell id="e20" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;strokeWidth=1.5;strokeColor=#D97706;endArrow=open;endFill=0;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;"
+          edge="1" source="a_supervisor" target="llm_factory" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e21" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;strokeWidth=1.5;strokeColor=#D97706;endArrow=open;endFill=0;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;"
+          edge="1" source="a_std" target="llm_factory" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e22" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;strokeWidth=1.5;strokeColor=#D97706;endArrow=open;endFill=0;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;"
+          edge="1" source="a_adjudicator" target="llm_factory" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e23" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;strokeWidth=1.5;strokeColor=#D97706;endArrow=open;endFill=0;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;"
+          edge="1" source="a_reflect" target="llm_factory" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e24" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;strokeWidth=1.5;strokeColor=#D97706;endArrow=open;endFill=0;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;"
+          edge="1" source="a_bom_reviewer" target="llm_factory" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- DedupMergeAgent → DedupTools -->
+        <mxCell id="e25" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;strokeWidth=1.5;strokeColor=#D97706;endArrow=open;endFill=0;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;"
+          edge="1" source="a_dedup" target="dedup_tools" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Agents → Services -->
+        <mxCell id="e30" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;strokeWidth=1.5;strokeColor=#D97706;endArrow=open;endFill=0;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;"
+          edge="1" source="a_dedup" target="svc_dedup" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e31" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;strokeWidth=1.5;strokeColor=#D97706;endArrow=open;endFill=0;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;"
+          edge="1" source="a_bom" target="svc_bom" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e32" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;strokeWidth=1.5;strokeColor=#D97706;endArrow=open;endFill=0;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;"
+          edge="1" source="a_coverage" target="svc_coverage" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e33" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;strokeWidth=1.5;strokeColor=#D97706;endArrow=open;endFill=0;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;"
+          edge="1" source="a_stix" target="svc_stix" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- LlmClientFactory → External LLM APIs -->
+        <mxCell id="e40" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;strokeWidth=2;
+                 strokeColor=#CA8A04;endArrow=open;endFill=0;html=1;
+                 dashed=1;dashPattern=7 4;exitX=1;exitY=0.5;entryX=0;entryY=0.5;"
+          edge="1" source="llm_factory" target="llm_ds" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Collectors → Threat Intel APIs -->
+        <mxCell id="e41" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;strokeWidth=2;
+                 strokeColor=#BE123C;endArrow=open;endFill=0;html=1;
+                 dashed=1;dashPattern=7 4;exitX=0.5;exitY=0;entryX=0.5;entryY=0;"
+          edge="1" source="runtime" target="intel_nvd" parent="1">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="130" y="246" /><mxPoint x="1558" y="246" /></Array></mxGeometry>
+        </mxCell>
+
+        <!-- WP1-2 graph → engines -->
+        <mxCell id="e50" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;strokeWidth=1.5;strokeColor=#166534;endArrow=open;endFill=0;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;"
+          edge="1" source="sg_graph" target="sg_threat" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e51" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;strokeWidth=1.5;strokeColor=#166534;endArrow=open;endFill=0;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;"
+          edge="1" source="sg_graph" target="sg_testpkg" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e52" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;strokeWidth=1.5;strokeColor=#166534;endArrow=open;endFill=0;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;"
+          edge="1" source="sg_graph" target="sg_feed" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e53" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;strokeWidth=1.5;strokeColor=#166534;endArrow=open;endFill=0;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;"
+          edge="1" source="sg_graph" target="sg_validate" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e54" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;strokeWidth=1.5;strokeColor=#166534;endArrow=open;endFill=0;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;"
+          edge="1" source="sg_graph" target="sg_persist" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e55" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;strokeWidth=1.5;strokeColor=#166534;endArrow=open;endFill=0;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;"
+          edge="1" source="sg_graph" target="sg_intel" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- WP1-2 engines → LLM APIs -->
+        <mxCell id="e60" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;strokeWidth=1.5;
+                 strokeColor=#CA8A04;endArrow=open;endFill=0;html=1;dashed=1;dashPattern=7 4;"
+          edge="1" source="sg_threat" target="llm_glm" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e61" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;strokeWidth=1.5;
+                 strokeColor=#CA8A04;endArrow=open;endFill=0;html=1;dashed=1;dashPattern=7 4;"
+          edge="1" source="sg_testpkg" target="llm_other" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Services → Repositories -->
+        <mxCell id="e70" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;strokeWidth=1.5;strokeColor=#475569;endArrow=open;endFill=0;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;"
+          edge="1" source="svc_dedup" target="repo_attack" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e71" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;strokeWidth=1.5;strokeColor=#475569;endArrow=open;endFill=0;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;"
+          edge="1" source="svc_bom" target="repo_component" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e72" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;strokeWidth=1.5;strokeColor=#475569;endArrow=open;endFill=0;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;"
+          edge="1" source="svc_stix" target="repo_stix" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e73" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;strokeWidth=1.5;strokeColor=#475569;endArrow=open;endFill=0;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;"
+          edge="1" source="svc_coverage" target="repo_read" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e74" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;strokeWidth=1.5;strokeColor=#475569;endArrow=open;endFill=0;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;"
+          edge="1" source="sg_feed" target="repo_read" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e75" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;strokeWidth=1.5;strokeColor=#475569;endArrow=open;endFill=0;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;"
+          edge="1" source="svc_merge" target="repo_attack" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e76" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;strokeWidth=1.5;strokeColor=#475569;endArrow=open;endFill=0;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;"
+          edge="1" source="svc_source" target="repo_source" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e77" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;strokeWidth=1.5;strokeColor=#475569;endArrow=open;endFill=0;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;"
+          edge="1" source="svc_ingest" target="repo_source" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Repositories → Databases -->
+        <mxCell id="e80" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;strokeWidth=2;strokeColor=#334155;endArrow=block;endFill=1;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;"
+          edge="1" source="repo_attack" target="db_pg" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e81" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;strokeWidth=2;strokeColor=#334155;endArrow=block;endFill=1;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;"
+          edge="1" source="repo_component" target="db_pg" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e82" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;strokeWidth=2;strokeColor=#334155;endArrow=block;endFill=1;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;"
+          edge="1" source="repo_stix" target="db_pg" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e83" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;strokeWidth=2;strokeColor=#334155;endArrow=block;endFill=1;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;"
+          edge="1" source="repo_read" target="db_pg" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e84" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;strokeWidth=2;strokeColor=#6D28D9;endArrow=block;endFill=1;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;"
+          edge="1" source="svc_dedup" target="db_qdrant" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ══════════════════════════════════════
+             LEGEND
+        ══════════════════════════════════════ -->
+        <mxCell id="legend_bg" value="图例"
+          style="swimlane;startSize=22;fillColor=#F8FAFC;strokeColor=#94A3B8;strokeWidth=1.5;
+                 fontStyle=1;fontSize=12;rounded=0;html=1;"
+          vertex="1" parent="1">
+          <mxGeometry x="580" y="1105" width="560" height="112" as="geometry" />
+        </mxCell>
+
+        <mxCell id="leg_call" value=""
+          style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=1.8;strokeColor=#374151;endArrow=open;endFill=0;html=1;"
+          edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="608" y="1143" /><mxPoint x="664" y="1143" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="leg_call_lbl" value="模块调用 / 依赖"
+          style="text;html=1;fontSize=11;align=left;" vertex="1" parent="1">
+          <mxGeometry x="670" y="1133" width="130" height="22" as="geometry" />
+        </mxCell>
+
+        <mxCell id="leg_ext" value=""
+          style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=1.8;strokeColor=#CA8A04;
+                 endArrow=open;endFill=0;html=1;dashed=1;dashPattern=7 4;"
+          edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="608" y="1168" /><mxPoint x="664" y="1168" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="leg_ext_lbl" value="调用外部 API（跨网络）"
+          style="text;html=1;fontSize=11;align=left;" vertex="1" parent="1">
+          <mxGeometry x="670" y="1158" width="160" height="22" as="geometry" />
+        </mxCell>
+
+        <mxCell id="leg_db_arrow" value=""
+          style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeWidth=2;strokeColor=#334155;
+                 endArrow=block;endFill=1;html=1;"
+          edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="608" y="1193" /><mxPoint x="664" y="1193" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="leg_db_lbl" value="读写数据库"
+          style="text;html=1;fontSize=11;align=left;" vertex="1" parent="1">
+          <mxGeometry x="670" y="1183" width="120" height="22" as="geometry" />
+        </mxCell>
+
+        <mxCell id="leg_pkg_lbl" value="«package» / «layer» = 模块包 / 架构层"
+          style="text;html=1;fontSize=11;align=left;fontStyle=2;" vertex="1" parent="1">
+          <mxGeometry x="862" y="1138" width="260" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_ext_pkg" value="«external» (虚线框) = 系统外部依赖"
+          style="text;html=1;fontSize=11;align=left;fontStyle=2;" vertex="1" parent="1">
+          <mxGeometry x="862" y="1165" width="260" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_grp" value="«module group» = 同类模块的逻辑分组"
+          style="text;html=1;fontSize=11;align=left;fontStyle=2;" vertex="1" parent="1">
+          <mxGeometry x="862" y="1192" width="260" height="22" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

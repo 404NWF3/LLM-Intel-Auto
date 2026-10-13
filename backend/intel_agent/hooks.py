@@ -10,7 +10,8 @@ surface is unavailable.
 
 from __future__ import annotations
 
-import os
+from intel_agent.runtime.client import _setting
+
 from typing import Any
 
 from .tools.context import ToolContext
@@ -26,7 +27,7 @@ _SOURCE_TOOLS = {
 
 
 def hooks_enabled() -> bool:
-    return os.getenv("INTEL_AGENT_HOOKS", "1").strip().lower() not in {"0", "false", "no", "off"}
+    return _setting("INTEL_AGENT_HOOKS", "1").strip().lower() not in {"0", "false", "no", "off"}
 
 
 def build_hooks(ctx: ToolContext) -> dict[str, Any] | None:

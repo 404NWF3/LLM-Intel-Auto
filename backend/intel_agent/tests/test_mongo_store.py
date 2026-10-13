@@ -134,27 +134,3 @@ def test_list_run_summaries_and_query_items(store):
 
     assert store.run_count() == 2
     assert "nvd_cve_api" in store.distinct_sources()
-
-
-def test_save_and_list_knowledge_graphs(store):
-    store.save_run(_blackboard("run-kg", ["nvd:kg"]))
-    record = {
-        "item_id": "nvd:kg",
-        "run_id": "run-kg",
-        "status": "succeeded",
-        "source_name": "nvd_cve_api",
-        "triplet_count": 3,
-        "entity_count": 4,
-        "model": "glm-4.7",
-        "embedding_model": "embedding-3",
-    }
-    store.save_knowledge_graph(record, graph={"IE": {"triplets": []}})
-    rows = store.list_knowledge_graphs(limit=10)
-    assert len(rows) == 1
-    assert rows[0]["item_id"] == "nvd:kg"
-    assert "graph" not in rows[0]
-    full = store.load_knowledge_graph("nvd:kg")
-    assert full is not None and "graph" in full
-    item = store.get_item("nvd:kg")
-    assert item["kg_status"] == "succeeded"
-    assert store.knowledge_graph_count() == 1

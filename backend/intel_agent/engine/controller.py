@@ -9,7 +9,8 @@ loop is fully testable offline.
 
 from __future__ import annotations
 
-import os
+from intel_agent.runtime.client import _setting
+
 import re
 import time
 from datetime import datetime, timezone
@@ -74,7 +75,7 @@ DEFAULT_MAX_RESULTS_PER_CALL = 20
 
 
 def incremental_strategy() -> str:
-    value = os.getenv("INTEL_INCREMENTAL_STRATEGY", "adaptive").strip().lower()
+    value = _setting("INTEL_INCREMENTAL_STRATEGY", "adaptive").strip().lower()
     return value if value in {"adaptive", "legacy"} else "adaptive"
 
 

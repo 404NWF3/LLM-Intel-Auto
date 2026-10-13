@@ -1,0 +1,43 @@
+{
+  "status": "PASS",
+  "unchanged_live_source_files": 199,
+  "template_only_change": ".env.example credential-bearing comment removed; staged secret gate required",
+  "live_capture_revalidation": {
+    "github_issues": {
+      "round_1": 10,
+      "round_2": 2,
+      "overlap": 0
+    },
+    "hackernews": {
+      "round_1": 10,
+      "round_2": 10,
+      "overlap": 0
+    },
+    "discourse": {
+      "round_1": 50,
+      "round_2": 11,
+      "overlap": 0
+    }
+  },
+  "per_query_cursor": "PASS",
+  "real_timeout_retry_checkpoint_recovery": "PASS",
+  "structured_stix": "PASS",
+  "api_real_run_replay": "PASS",
+  "api_auth_request_id": "PASS",
+  "acceptance": {
+    "reddit": "PASS",
+    "discord": "BLOCKED",
+    "twitter": "BLOCKED",
+    "cross_platform": "PASS",
+    "dynamic_keywords_two_stage": "PASS"
+  },
+  "api_run_id": "community-v1-b99400605cca",
+  "exclusions": [
+    "BOM",
+    "WP1-2",
+    "PostgreSQL",
+    "Phase 6 planning",
+    "legacy crawler",
+    "unrelated external LLM reviewers"
+  ]
+}

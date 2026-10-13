@@ -1,0 +1,82 @@
+{
+    "profiles": [
+    {
+      "profile_id": "301",
+      "profile": "cheap_fast",
+      "provider": "openai_compatible",
+      "model_env": "GLM_FAST_MODEL",
+      "base_url_env": "GLM_BASE_URL",
+      "api_key_env": "GLM_API_KEY_1",
+      "enabled": true,
+      "supports_structured_output": true,
+      "cost_tier": "cheap",
+      "max_concurrency": 16,
+      "cooldown_seconds": 20
+    },
+    {
+      "profile_id": "302",
+      "profile": "balanced",
+      "provider": "openai_compatible",
+      "model_env": "GLM_MODEL",
+      "base_url_env": "GLM_BASE_URL",
+      "api_key_env": "GLM_API_KEY_1",
+      "enabled": true,
+      "supports_structured_output": true,
+      "cost_tier": "standard",
+      "max_concurrency": 16,
+      "cooldown_seconds": 20
+    },
+    {
+      "profile_id": "303",
+      "profile": "fallback",
+      "provider": "openai_compatible",
+      "model_env": "GLM_CHEAP_FAST_MODEL",
+      "base_url_env": "GLM_BASE_URL",
+      "api_key_env": "GLM_API_KEY_1",
+      "enabled": true,
+      "supports_structured_output": true,
+      "cost_tier": "fallback",
+      "max_concurrency": 16,
+      "cooldown_seconds": 20
+    },
+    {
+      "profile_id": "401",
+      "profile": "cheap_fast",
+      "provider": "openai_compatible",
+      "model_env": "MINIMAX_CHEAP_FAST_MODEL",
+      "base_url_env": "MINIMAX_BASE_URL",
+      "api_key_env": "MINIMAX_API_KEY",
+      "enabled": true,
+      "supports_structured_output": true,
+      "cost_tier": "cheap",
+      "max_concurrency": 16,
+      "cooldown_seconds": 20
+    },
+    {
+      "profile_id": "402",
+      "profile": "balanced",
+      "provider": "openai_compatible",
+      "model_env": "MINIMAX_MODEL",
+      "base_url_env": "MINIMAX_BASE_URL",
+      "api_key_env": "MINIMAX_API_KEY",
+      "enabled": true,
+      "supports_structured_output": true,
+      "cost_tier": "standard",
+      "max_concurrency": 16,
+      "cooldown_seconds": 20
+    },
+    {
+      "profile_id": "403",
+      "profile": "fallback",
+      "provider": "openai_compatible",
+      "model_env": "MINIMAX_FAST_MODEL",
+      "base_url_env": "MINIMAX_BASE_URL",
+      "api_key_env": "MINIMAX_API_KEY",
+      "enabled": true,
+      "supports_structured_output": true,
+      "cost_tier": "fallback",
+      "max_concurrency": 16,
+      "cooldown_seconds": 20
+    }
+  ]
+}

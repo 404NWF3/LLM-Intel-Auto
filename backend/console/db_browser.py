@@ -62,12 +62,7 @@ def store_status() -> str:
         items = int(getattr(store, "distinct_item_count", lambda: 0)())
     except Exception as exc:  # noqa: BLE001
         return f"Store: {backend}\nRuns: {runs}\nError reading items: {exc.__class__.__name__}: {exc}"
-    kgs = 0
-    try:
-        kgs = int(getattr(store, "knowledge_graph_count", lambda: 0)())
-    except Exception:  # noqa: BLE001
-        kgs = 0
-    return f"Store: {backend}\nRuns: {runs}\nDistinct items: {items}\nKnowledge graphs: {kgs}"
+    return f"Store: {backend}\nRuns: {runs}\nDistinct items: {items}"
 
 
 def source_choices() -> list[str]:

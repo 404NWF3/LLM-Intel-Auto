@@ -1,0 +1,158 @@
+<mxfile host="app.diagrams.net" modified="2026-04-12T00:00:00.000Z" agent="GPT-5.4 Thinking" version="24.7.17">
+  <diagram id="saads-arch-full" name="Page-1">
+    <mxGraphModel dx="1600" dy="2200" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="2200" math="0" shadow="0" background="#FFFFFF">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <!-- Title -->
+        <mxCell id="title" value="SAADS 系统总体结构" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=2.5;fontColor=#000000;fontStyle=1;fontSize=24;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="220" y="30" width="1160" height="60" as="geometry"/>
+        </mxCell>
+
+        <!-- Frontend Layer -->
+        <mxCell id="frontend_layer" value="前端展示层（B/S）&#xa;Next.js 16 + React 19" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=2;fontColor=#000000;fontStyle=1;fontSize=20;align=left;verticalAlign=top;spacingLeft=16;spacingTop=12;" vertex="1" parent="1">
+          <mxGeometry x="220" y="130" width="420" height="250" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="frontend_panel" value="Dashboard（看板主页）&#xa;WP1-1 指标面板&#xa;WP1-2 测试计划面板&#xa;实时日志查看器（SSE）&#xa;告警面板&#xa;调试控制面板" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1.8;fontColor=#000000;fontSize=17;align=left;verticalAlign=middle;spacingLeft=14;spacingTop=10;spacingBottom=10;" vertex="1" parent="1">
+          <mxGeometry x="275" y="200" width="310" height="145" as="geometry"/>
+        </mxCell>
+
+        <!-- Backend API Layer -->
+        <mxCell id="backend_layer" value="后端 API 接口层（FastAPI）" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=2;fontColor=#000000;fontStyle=1;fontSize=20;align=left;verticalAlign=top;spacingLeft=16;spacingTop=12;" vertex="1" parent="1">
+          <mxGeometry x="160" y="450" width="1280" height="170" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="router_wp11" value="WP1-1 Router&#xa;/api/wp11/*" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1.8;fontColor=#000000;fontStyle=1;fontSize=17;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="230" y="505" width="240" height="70" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="router_wp12" value="WP1-2 Router&#xa;/api/wp12/*" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1.8;fontColor=#000000;fontStyle=1;fontSize=17;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="530" y="505" width="240" height="70" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="router_sentinel" value="Sentinel Router（健康/配置）&#xa;/health   /config" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1.8;fontColor=#000000;fontStyle=1;fontSize=17;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="830" y="505" width="430" height="70" as="geometry"/>
+        </mxCell>
+
+        <!-- Orchestration Layer -->
+        <mxCell id="orchestrator_layer" value="智能体编排层（LangGraph）" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=2;fontColor=#000000;fontStyle=1;fontSize=20;align=left;verticalAlign=top;spacingLeft=16;spacingTop=12;" vertex="1" parent="1">
+          <mxGeometry x="120" y="700" width="1360" height="560" as="geometry"/>
+        </mxCell>
+
+        <!-- WP1-1 module -->
+        <mxCell id="wp11_module" value="WP1-1：情报采集与处理模块&#xa;Phase1GraphRuntime" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1.8;fontColor=#000000;fontStyle=1;fontSize=18;align=left;verticalAlign=top;spacingLeft=14;spacingTop=10;" vertex="1" parent="1">
+          <mxGeometry x="170" y="760" width="620" height="430" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="wp11_state" value="22节点 LangGraph状态机&#xa;WP11GraphState" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1.5;fontColor=#000000;fontStyle=1;fontSize=16;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="235" y="830" width="260" height="80" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="wp11_agents" value="智能体层&#xa;supervisor_agent&#xa;standardizer_agent&#xa;dedup_merge_agent&#xa;dedup_adjudicator_agent&#xa;bom_mapper_agent&#xa;coverage_analyst_agent&#xa;search_reflection_agent" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1.5;fontColor=#000000;fontSize=16;align=left;verticalAlign=middle;spacingLeft=12;spacingTop=10;spacingBottom=10;" vertex="1" parent="1">
+          <mxGeometry x="220" y="950" width="520" height="200" as="geometry"/>
+        </mxCell>
+
+        <!-- WP1-2 module -->
+        <mxCell id="wp12_module" value="WP1-2：测试生成模块&#xa;SecurityEvalGraph" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1.8;fontColor=#000000;fontStyle=1;fontSize=18;align=left;verticalAlign=top;spacingLeft=14;spacingTop=10;" vertex="1" parent="1">
+          <mxGeometry x="850" y="760" width="560" height="300" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="wp12_state" value="7节点 测试编排图&#xa;SecurityEvalState" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1.5;fontColor=#000000;fontStyle=1;fontSize=16;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="920" y="830" width="220" height="80" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="wp12_subgraph" value="威胁理解子图&#xa;测试包生成子图&#xa;ThreatUnderstanding&#xa;TestPackageGen" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1.5;fontColor=#000000;fontSize=16;align=left;verticalAlign=middle;spacingLeft=12;spacingTop=10;spacingBottom=10;" vertex="1" parent="1">
+          <mxGeometry x="1180" y="830" width="180" height="120" as="geometry"/>
+        </mxCell>
+
+        <!-- Services Layer -->
+        <mxCell id="services_layer" value="业务服务层（Services）" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=2;fontColor=#000000;fontStyle=1;fontSize=20;align=left;verticalAlign=top;spacingLeft=16;spacingTop=12;" vertex="1" parent="1">
+          <mxGeometry x="120" y="1330" width="1360" height="360" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="svc1" value="DeduplicMemory&#xa;Service&#xa;（去重记忆）" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1.5;fontColor=#000000;fontStyle=1;fontSize=15;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="170" y="1400" width="180" height="80" as="geometry"/>
+        </mxCell>
+        <mxCell id="svc2" value="BomResolution&#xa;Service&#xa;（组件解析）" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1.5;fontColor=#000000;fontStyle=1;fontSize=15;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="390" y="1400" width="180" height="80" as="geometry"/>
+        </mxCell>
+        <mxCell id="svc3" value="CoverageReadModel&#xa;Service&#xa;（覆盖度分析）" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1.5;fontColor=#000000;fontStyle=1;fontSize=15;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="610" y="1400" width="180" height="80" as="geometry"/>
+        </mxCell>
+        <mxCell id="svc4" value="AttackMerge&#xa;Service&#xa;（情报合并）" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1.5;fontColor=#000000;fontStyle=1;fontSize=15;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="170" y="1510" width="180" height="80" as="geometry"/>
+        </mxCell>
+        <mxCell id="svc5" value="IngestionService&#xa;（原始记录入库）" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1.5;fontColor=#000000;fontStyle=1;fontSize=15;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="390" y="1510" width="180" height="80" as="geometry"/>
+        </mxCell>
+        <mxCell id="svc6" value="ConfidenceScoring&#xa;Service&#xa;（置信度评估）" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1.5;fontColor=#000000;fontStyle=1;fontSize=15;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="610" y="1510" width="180" height="80" as="geometry"/>
+        </mxCell>
+        <mxCell id="svc7" value="LlmClientFactory&#xa;（模型池调度）" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1.5;fontColor=#000000;fontStyle=1;fontSize=15;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="900" y="1400" width="180" height="80" as="geometry"/>
+        </mxCell>
+        <mxCell id="svc8" value="SourceHealth&#xa;Service" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1.5;fontColor=#000000;fontStyle=1;fontSize=15;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1120" y="1400" width="180" height="80" as="geometry"/>
+        </mxCell>
+        <mxCell id="svc9" value="TaxonomyService&#xa;（分类映射）" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1.5;fontColor=#000000;fontStyle=1;fontSize=15;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1010" y="1510" width="180" height="80" as="geometry"/>
+        </mxCell>
+
+        <!-- Repository Layer -->
+        <mxCell id="repo_layer" value="数据访问层（Repositories）" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=2;fontColor=#000000;fontStyle=1;fontSize=20;align=left;verticalAlign=top;spacingLeft=16;spacingTop=12;" vertex="1" parent="1">
+          <mxGeometry x="120" y="1760" width="1360" height="140" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="repo_text" value="AttackRepository  │  ComponentRepository  │  SourceRepository&#xa;GovernanceRepository  │  StixRepository  │  ReadModelRepository&#xa;（Unit of Work 模式统一管理事务）" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=none;fontColor=#000000;fontSize=17;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="190" y="1800" width="1220" height="70" as="geometry"/>
+        </mxCell>
+
+        <!-- Data Stores -->
+        <mxCell id="postgres" value="PostgreSQL&#xa;关系数据库&#xa;attack_entry&#xa;ai_component&#xa;stix_bundle&#xa;bom_queue ..." style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=2;fontColor=#000000;fontStyle=1;fontSize=17;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="250" y="1970" width="300" height="180" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="qdrant" value="Qdrant&#xa;向量数据库&#xa;saads_attacks&#xa;（攻击向量索引）" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=2;fontColor=#000000;fontStyle=1;fontSize=17;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="710" y="1990" width="300" height="140" as="geometry"/>
+        </mxCell>
+
+        <!-- External APIs -->
+        <mxCell id="external" value="外部 LLM 与情报 API 层&#xa;DashScope（Qwen）  │  BigModel（GLM）  │  MiniMax&#xa;NVD  │  GitHub  │  VirusTotal  │  AlienVault OTX" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=2;fontColor=#000000;fontStyle=1;fontSize=17;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1090" y="1970" width="330" height="180" as="geometry"/>
+        </mxCell>
+
+        <!-- Edges -->
+        <mxCell id="e1" value="HTTP REST / WebSocket / SSE" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=2;fontColor=#000000;fontSize=16;endArrow=block;endFill=1;" edge="1" parent="1" source="frontend_layer" target="backend_layer">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e2" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=2;endArrow=block;endFill=1;" edge="1" parent="1" source="backend_layer" target="orchestrator_layer">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e3" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=2;endArrow=block;endFill=1;" edge="1" parent="1" source="orchestrator_layer" target="services_layer">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e4" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=2;endArrow=block;endFill=1;" edge="1" parent="1" source="services_layer" target="repo_layer">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e5" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=2;endArrow=block;endFill=1;" edge="1" parent="1" source="repo_layer" target="postgres">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e6" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=2;endArrow=block;endFill=1;" edge="1" parent="1" source="repo_layer" target="qdrant">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e7" value="外部依赖" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=2;fontColor=#000000;fontSize=15;dashed=1;endArrow=block;endFill=1;" edge="1" parent="1" source="services_layer" target="external">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

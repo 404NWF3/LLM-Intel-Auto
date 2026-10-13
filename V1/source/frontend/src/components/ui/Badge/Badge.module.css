@@ -1,0 +1,56 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 26px;
+  padding: 0 0.7rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  border: 1px solid transparent;
+}
+
+/* ── 状态变体 ── */
+.running {
+  color: var(--status-running);
+  background: var(--status-running-bg);
+  border-color: var(--status-running-border);
+}
+
+.warning {
+  color: var(--status-warning);
+  background: var(--status-warning-bg);
+  border-color: var(--status-warning-border);
+}
+
+.error {
+  color: var(--status-error);
+  background: var(--status-error-bg);
+  border-color: var(--status-error-border);
+}
+
+.idle {
+  color: var(--status-idle);
+  background: var(--status-idle-bg);
+  border-color: var(--status-idle-border);
+}
+
+.pending {
+  color: var(--status-pending);
+  background: var(--status-pending-bg);
+  border-color: var(--status-pending-border);
+}
+
+/* ── 层次变体 ── */
+.generic {
+  color: var(--accent);
+  background: var(--layer-generic);
+  border-color: var(--layer-generic-border);
+}
+
+.user {
+  color: var(--text-soft);
+  background: var(--layer-user);
+  border-color: var(--layer-user-border);
+}

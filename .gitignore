@@ -4,9 +4,10 @@ __pycache__/
 
 /data
 
-# base KG pipeline outputs
-base_kg/output/
 
 /.agents
 /.cursor
 
+
+.venv/
+.pytest_cache/
