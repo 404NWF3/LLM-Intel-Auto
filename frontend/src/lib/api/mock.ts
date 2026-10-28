@@ -13,7 +13,6 @@ import type {
   WpNodeInfo,
   WP11StateSnapshot,
 } from "@/lib/types/dashboard"
-import type { StatsResponse } from "@/lib/types/stats"
 
 /* ── Phase 0-2 mock 数据 ─────────────────────────────────────── */
 
@@ -33,13 +32,6 @@ export const MOCK_WP11_STATUS: WpStatusResponse = {
     "Standardizer: normalizing 12 raw records",
   ],
   last_updated: new Date().toISOString(),
-}
-
-export const MOCK_STATS: StatsResponse = {
-  attack_entry_count: Number(MOCK_WP11_STATUS.metrics.attack_pool_size ?? 0),
-  eval_job_count: 0,
-  owasp_covered: 9,
-  owasp_coverage_pct: Number(MOCK_WP11_STATUS.metrics.coverage_rate ?? 0),
 }
 
 export const MOCK_WP_STATUS_STUBS: Record<string, WpStatusResponse> = {

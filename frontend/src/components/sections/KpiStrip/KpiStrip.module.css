@@ -7,6 +7,10 @@
   border-top: 1px solid var(--line);
 }
 
+.section :global(.kpi-strip) {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .valueRow {
   display: inline-flex;
   align-items: baseline;
@@ -27,9 +31,35 @@
   color: var(--text-faint);
 }
 
-/* ── Responsive: 2-col on small screens ─────────────────────────────────── */
+.syncRow {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1.75rem;
+  font-size: 0.78rem;
+  color: var(--text-faint);
+}
+
+.syncRow button {
+  padding: 0.35rem 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.syncRow button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+/* ── Responsive ───────────────────────────────────────────────────────── */
 @media (max-width: 640px) {
-  :global(.kpi-strip) {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .section :global(.kpi-strip) {
+    grid-template-columns: 1fr;
   }
 }

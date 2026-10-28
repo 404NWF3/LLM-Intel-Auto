@@ -159,6 +159,23 @@ def create_app(service: CollectionService | None = None, researcher_service=None
         logging.error("Intel API failure", exc_info=exc)
         return JSONResponse(status_code=503, content={"detail": "情报存储暂不可用，请检查后端服务日志。"})
 
+    @app.get("/api/stats")
+    def stats():
+        # Use the same deduplicated corpus as the collector, across all runs.
+        items = service.store.query_items(limit=None)
+        topics = {topic for item in items for topic in (item.get("topics") or [])}
+        covered = len(topics.intersection(CORE_SECURITY_TOPICS))
+        total = len(CORE_SECURITY_TOPICS)
+        return JSONResponse(content={
+            "item_count": len(items),
+            "source_count": len({item["source_name"] for item in items if item.get("source_name")}),
+            "core_topics_covered": covered,
+            "core_topics_total": total,
+            "core_coverage_pct": round(100.0 * covered / total, 1) if total else 0.0,
+            "script_count": pentest.overview()["script_count"],
+            "updated_at": now(),
+        }, headers={"Cache-Control": "no-store"})
+
     @app.get("/api/intel/overview")
     def overview():
         latest = service.store.load_latest_payload()

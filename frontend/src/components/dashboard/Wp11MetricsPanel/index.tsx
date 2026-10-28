@@ -18,7 +18,7 @@ export function Wp11MetricsPanel({ wp }: Wp11MetricsPanelProps) {
       valueOverrides={
         stats
           ? {
-              attack_pool_size: stats.attack_entry_count,
+              attack_pool_size: stats.item_count,
             }
           : undefined
       }
