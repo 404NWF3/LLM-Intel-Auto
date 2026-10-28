@@ -1,0 +1,48 @@
+.window {
+  overflow: hidden;
+  border: 1px solid rgba(23, 21, 18, 0.1);
+  border-radius: 1.4rem;
+  background: #f2ece2;
+  box-shadow: var(--shadow-md);
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  padding: 0 1rem;
+  border-bottom: 1px solid rgba(23, 21, 18, 0.08);
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.dot {
+  display: inline-block;
+  width: 0.68rem;
+  height: 0.68rem;
+  border-radius: 50%;
+  background: rgba(23, 21, 18, 0.16);
+  flex-shrink: 0;
+}
+
+.title {
+  margin-left: auto;
+  margin-right: auto;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-faint);
+  letter-spacing: 0.04em;
+}
+
+.body {
+  padding: 1.15rem 1.25rem 1.3rem;
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  line-height: 1.7;
+  color: #2a241e;
+  overflow-x: auto;
+}
+
+.body pre {
+  margin: 0;
+}

@@ -134,3 +134,17 @@ def test_list_run_summaries_and_query_items(store):
 
     assert store.run_count() == 2
     assert "nvd_cve_api" in store.distinct_sources()
+
+
+def test_large_run_uses_lossless_external_items(store, monkeypatch):
+    monkeypatch.setattr(mongo_store, "MAX_INLINE_RUN_BYTES", 500)
+    board = _blackboard("large-import", ["nvd:a", "nvd:b"])
+    board.raw_items[0].summary = "long summary\n" * 500
+    board.raw_items[0].raw_text = "raw content\n" * 1000
+    store.save_run(board)
+    persisted = store._runs.find_one({"_id": "large-import"})
+    assert persisted["items_external"] is True
+    assert persisted["blackboard"]["raw_items"] == []
+    assert store.load_latest_payload()["blackboard"]["raw_items"][0]["raw_text"] == board.raw_items[0].raw_text
+    assert store.load_all_blackboards()[0].raw_items[0].summary == board.raw_items[0].summary
+    assert store.distinct_item_count() == 2

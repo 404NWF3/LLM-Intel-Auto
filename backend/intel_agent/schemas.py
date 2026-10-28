@@ -24,13 +24,19 @@ NonNegativeInt = Annotated[int, Field(ge=0)]
 
 RunMode = Literal["bootstrap", "incremental", "gap_fill", "deep_research"]
 Priority = Literal["low", "medium", "high", "critical"]
-SourceType = Literal["security_db", "paper", "advisory", "research", "web"]
-EvidenceChannel = Literal["research", "vulnerability_advisory", "exploitation"]
+SourceType = Literal["security_db", "paper", "advisory", "research", "web", "community"]
+EvidenceChannel = Literal["research", "vulnerability_advisory", "exploitation", "community"]
 QueryIntent = Literal["gap_fill", "discovery", "entity_expand", "confirmation"]
 GapStatus = Literal["open", "satisfied", "exhausted_this_run", "failed", "not_applicable"]
 
-REGISTERED_SOURCE_NAMES = ("nvd_cve_api", "arxiv_api", "cisa_kev_json", "osv_dev_api")
-RegisteredSourceName = Literal["nvd_cve_api", "arxiv_api", "cisa_kev_json", "osv_dev_api"]
+REGISTERED_SOURCE_NAMES = (
+    "nvd_cve_api", "arxiv_api", "cisa_kev_json", "osv_dev_api",
+    "hackernews", "discourse", "github_issues", "reddit",
+)
+RegisteredSourceName = Literal[
+    "nvd_cve_api", "arxiv_api", "cisa_kev_json", "osv_dev_api",
+    "hackernews", "discourse", "github_issues", "reddit",
+]
 
 
 class FlexibleModel(BaseModel):

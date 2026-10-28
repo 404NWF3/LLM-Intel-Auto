@@ -1,0 +1,36 @@
+.page {
+  display: flex;
+  flex-direction: column;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 1.25rem 1.5rem 1.5rem;
+}
+
+.twoCol {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+}
+
+.wp11Layout {
+  display: grid;
+  grid-template-columns: minmax(360px, 1fr) minmax(420px, 1.2fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.wp11Log,
+.wp11Side {
+  min-width: 0;
+}
+
+@media (max-width: 900px) {
+  .wp11Layout,
+  .twoCol {
+    grid-template-columns: 1fr;
+  }
+}

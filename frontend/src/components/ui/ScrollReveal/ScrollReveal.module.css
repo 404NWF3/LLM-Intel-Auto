@@ -1,0 +1,6 @@
+/* ScrollReveal 本身不需要额外样式
+   动画由 animations.css 中的 [data-reveal] / .is-visible 工具类驱动 */
+.root {
+  /* 继承父级宽度 */
+  width: 100%;
+}

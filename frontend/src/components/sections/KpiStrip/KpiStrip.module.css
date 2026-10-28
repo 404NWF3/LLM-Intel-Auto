@@ -1,0 +1,35 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   KpiStrip.module.css
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.section {
+  padding-block: clamp(3rem, 6vw, 5rem);
+  border-top: 1px solid var(--line);
+}
+
+.valueRow {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.08em;
+}
+
+.suffix {
+  font-family: var(--font-serif);
+  font-size: clamp(1.4rem, 2vw, 2rem);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: var(--accent);
+}
+
+.sub {
+  margin-top: 0.25rem;
+  font-size: 0.82rem;
+  color: var(--text-faint);
+}
+
+/* ── Responsive: 2-col on small screens ─────────────────────────────────── */
+@media (max-width: 640px) {
+  :global(.kpi-strip) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

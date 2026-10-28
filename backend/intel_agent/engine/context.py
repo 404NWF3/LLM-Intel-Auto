@@ -35,6 +35,9 @@ def render_digest(
         f"Round {round_index + 1}/{max_rounds} | total items {len(blackboard.raw_items)} "
         f"| api_calls_used {used}{cap}"
     )
+    lines.append("Enabled sources: " + ", ".join(
+        source.source_name for source in blackboard.approved_sources if source.enabled
+    ))
 
     if blackboard.collection_strategy == "adaptive":
         lines.append("")
@@ -54,6 +57,8 @@ def render_digest(
                     f"- {gap.gap_id} | {gap.gap_type} | source={gap.source_name or '-'} "
                     f"| priority={gap.priority} | {gap.rationale}"
                 )
+                if gap.gap_type == "pagination" and gap.metadata.get("params"):
+                    lines.append(f"  Continue query={gap.metadata.get('query_text')!r} params={gap.metadata['params']}")
         if blackboard.query_outcomes:
             lines.append("")
             lines.append("Recent call outcomes: source | intent | raw/new/relevant | dup/noise | reward")
@@ -122,6 +127,8 @@ def _per_source_yield(history: list) -> dict[str, dict[str, float]]:
         prefixes = {
             "nvd_cve_api": "nvd:", "arxiv_api": "arxiv:",
             "cisa_kev_json": "cisa-kev:", "osv_dev_api": "osv:",
+            "github_issues": "github-issue:", "hackernews": "hn:",
+            "discourse": "hf-post:", "reddit": "reddit:",
         }
         sources = [str(plan.get("source_name", "")) for plan in plans] or entry.source_names
         for source in sources:

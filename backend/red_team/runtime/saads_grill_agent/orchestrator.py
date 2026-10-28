@@ -1,0 +1,827 @@
+"""Evidence-driven state machine for adversarial repository assessments."""
+
+from __future__ import annotations
+
+from hashlib import sha256
+from collections.abc import Callable
+from typing import Any, Protocol
+
+from pydantic import BaseModel, ConfigDict
+
+from saads_grill_agent.contracts import (
+    Adjudication,
+    AssessmentConfig,
+    AssessmentState,
+    DefenderRebuttal,
+    Finding,
+    GeneratedTestDraft,
+    HypothesisRecord,
+    RedResponse,
+    RepositoryProfile,
+    ThreatSurface,
+    VulnerabilityHypothesis,
+)
+from saads_grill_agent.report import confidence_level
+from saads_grill_agent.repository import RepositoryEvidenceStore
+from saads_grill_agent.teams import (
+    HypothesisBatch,
+    RebuttalBatch,
+    RedResponseBatch,
+    TeamBackend,
+    TeamTurnAudits,
+    TeamTurnError,
+)
+
+
+class AssessmentLedger(Protocol):
+    """Persistence surface; Task 6 records IDs when MCP tools issue evidence."""
+
+    def checkpoint(self, state: AssessmentState) -> None: ...
+
+    def append_event(self, event: str, **details: Any) -> None: ...
+
+    def record_issued_evidence(self, *evidence_ids: str) -> None: ...
+
+    def list_issued_evidence(self) -> list[str]: ...
+
+
+class ProfileResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    profile: RepositoryProfile
+    threat_surfaces: list[ThreatSurface]
+
+
+class _ResourceLimit(RuntimeError):
+    pass
+
+
+_GRILL_RED_DISCOVERY = (
+    "Grilling: propose a few falsifiable branches at a time; verify facts before "
+    "hypotheses; name the most likely attack angle on each; if evidence is thin, "
+    "propose fewer hypotheses or return an empty list."
+)
+_GRILL_RED_DEBATE = (
+    "Grilling: focus only on the current hypothesis; any stand must cite issued "
+    "evidence_id values; you may recommend refinements but do not issue final "
+    "verdicts—the judge decides."
+)
+_GRILL_JUDGE = (
+    "Grilling: verify cited evidence first; you may request_more_evidence before "
+    "convergence; issue confirm, reject, or duplicate only as a terminal verdict."
+)
+_GRILL_CODE_REBUTTAL = (
+    "Grilling: falsify with repository evidence in one focused pass against the "
+    "current hypothesis."
+)
+_GRAPH_SKILL_HINT = (
+    "If you need mechanism, control, or similar-pattern background, you may use "
+    "$ground-red-team-evidence (optional—not required)."
+)
+
+
+def _augment_prompt(base: str, grilling: str, *, graph_enabled: bool) -> str:
+    parts = [base, grilling]
+    if graph_enabled:
+        parts.append(_GRAPH_SKILL_HINT)
+    return "\n\n".join(parts)
+
+
+def derive_hypothesis_id(hypothesis: VulnerabilityHypothesis) -> str:
+    """Derive the ledger identity from the canonical source-to-sink tuple."""
+    source = hypothesis.attack_path[0]
+    sink = hypothesis.attack_path[-1]
+    normalized = "\0".join(
+        " ".join(value.lower().split())
+        for value in (hypothesis.surface_id, hypothesis.root_cause, source, sink)
+    )
+    return "hyp-" + sha256(normalized.encode("utf-8")).hexdigest()[:16]
+
+
+class AssessmentOrchestrator:
+    """Run profile, discovery, debate and test-draft phases in order."""
+
+    def __init__(
+        self,
+        *,
+        backend: TeamBackend,
+        evidence_store: RepositoryEvidenceStore,
+        ledger: AssessmentLedger,
+        security_graph: Any | None = None,
+        graph_enabled: bool = False,
+        publish_test_draft: Callable[
+            [GeneratedTestDraft, Finding, AssessmentState], None
+        ]
+        | None = None,
+        code_audit: list[Any] | None = None,
+        graph_audit: list[Any] | None = None,
+    ) -> None:
+        self._backend = backend
+        self._store = evidence_store
+        self._ledger = ledger
+        self._security_graph = security_graph
+        self._graph_enabled = graph_enabled
+        self._publish_test_draft = publish_test_draft
+        self._code_audit = code_audit if code_audit is not None else []
+        self._graph_audit = graph_audit if graph_audit is not None else []
+
+    async def run(self, config: AssessmentConfig) -> AssessmentState:
+        state = AssessmentState(config=config, snapshot_id=self._store.snapshot_id, graph_enabled=self._graph_enabled)
+        state.register_evidence(*self._ledger.list_issued_evidence())
+        return await self._continue(state)
+
+    async def resume(self, state: AssessmentState) -> AssessmentState:
+        if state.snapshot_id != self._store.snapshot_id:
+            raise ValueError("repository snapshot does not match the assessment state")
+        if state.phase == "complete":
+            return state
+        return await self._continue(state)
+
+    async def _continue(self, state: AssessmentState) -> AssessmentState:
+        try:
+            if state.profile is None:
+                state.phase = "profiling"
+                profile = await self._turn(
+                    state,
+                    "code_team",
+                    (
+                        "Profile repository attack surfaces and return ProfileResult ASAP. "
+                        "Do not spawn subagents. Use only repository MCP tools: "
+                        "list_repository, then a few search_repository / "
+                        "read_repository_snippet calls for model, prompt, tool, RAG, "
+                        "and auth seams. Prefer signed snippets over exhaustive "
+                        "exploration. You MUST cite only evidence_id values returned by "
+                        "read_repository_snippet; never invent IDs such as ev-* "
+                        "and never put file paths in evidence_id fields."
+                    ),
+                    ProfileResult,
+                    enable_subagents=state.config.sdk.enable_subagents_profiling,
+                )
+                profile = self._normalize_profile_evidence(state, profile)
+                self._require_profile_evidence(state, profile)
+                if len(profile.threat_surfaces) > state.config.max_threat_surfaces:
+                    raise _ResourceLimit("max_threat_surfaces")
+                state.profile = profile.profile
+                state.threat_surfaces = profile.threat_surfaces
+                self._checkpoint(state)
+
+            # A web stop can leave an existing hypothesis between team turns.
+            # Finish those threads before discovering more (which deduplicates them).
+            for hypothesis_id, record in list(state.hypotheses.items()):
+                if record.status == "debating":
+                    await self._debate(state, hypothesis_id)
+                    if state.phase == "interrupted":
+                        return state
+
+            discovery_done = state.discovery.consecutive_empty_sweeps >= 2
+            if not discovery_done:
+                state.phase = "discovery"
+                await self._discover(state)
+                if state.phase == "interrupted":
+                    return state
+            state.phase = "generating_tests"
+            await self._generate_test_drafts(state)
+            state.phase = "complete"
+            self._checkpoint(state)
+            return state
+        except _ResourceLimit as exc:
+            return await self._interrupt(state, str(exc))
+        except TeamTurnError as exc:
+            # Safety net: never abort the CLI hard on SDK turn exhaustion.
+            self._event("team_turn_failed", reason=str(exc)[:500])
+            return await self._interrupt(state, str(exc))
+
+    async def _discover(self, state: AssessmentState) -> None:
+        while state.discovery.consecutive_empty_sweeps < 2:
+            surface_ids = ", ".join(
+                surface.surface_id for surface in state.threat_surfaces[:20]
+            ) or "(none)"
+            evidence_ids = ", ".join(state.evidence_ids[:40]) or "(none)"
+            prompt = _augment_prompt(
+                (
+                    "Propose at most 3 grounded vulnerability hypotheses for this LLM app. "
+                    f"Profiled surface_ids: {surface_ids}. "
+                    f"Prefer these already-issued evidence_ids: {evidence_ids}. "
+                    "Do at most 8 repository tool calls total; search targeted keywords "
+                    "(prompt, tool, rag, debug, system) instead of listing the whole repo. "
+                    "Cite only issued evidence_id values in HypothesisBatch — never file paths. "
+                    "Stop exploring and return HypothesisBatch structured output as soon as "
+                    "you have 1–3 solid hypotheses (empty list is allowed if none are grounded)."
+                ),
+                _GRILL_RED_DISCOVERY,
+                graph_enabled=self._graph_enabled,
+            )
+            try:
+                batch = await self._turn(
+                    state,
+                    "red_team",
+                    prompt,
+                    HypothesisBatch,
+                    enable_subagents=state.config.sdk.enable_subagents_discovery,
+                    max_turns=state.config.sdk.discovery_max_turns,
+                )
+            except TeamTurnError as exc:
+                # Large repos can exhaust SDK turns before structured output lands.
+                # Count that as an empty discovery sweep instead of aborting the run.
+                reason = str(exc)
+                if "error_max_turns" in reason or "no structured output" in reason:
+                    self._event("discovery_turn_failed", reason=reason[:500])
+                    state.discovery.consecutive_empty_sweeps += 1
+                    self._checkpoint(state)
+                    continue
+                raise
+            added = self._add_hypotheses(state, batch.hypotheses)
+            if not added:
+                state.discovery.consecutive_empty_sweeps += 1
+                self._checkpoint(state)
+                continue
+            state.discovery.consecutive_empty_sweeps = 0
+            # Persist hypotheses before debate so a later max_turns failure is resumable.
+            self._checkpoint(state)
+            for hypothesis_id in added:
+                await self._debate(state, hypothesis_id)
+                if state.phase == "interrupted":
+                    return
+
+    def _add_hypotheses(
+        self, state: AssessmentState, hypotheses: list[VulnerabilityHypothesis]
+    ) -> list[str]:
+        added: list[str] = []
+        known_keys = {
+            self._hypothesis_key(record.hypothesis) for record in state.hypotheses.values()
+        }
+        for hypothesis in hypotheses:
+            key = self._hypothesis_key(hypothesis)
+            if key in known_keys:
+                self._event("hypothesis_duplicate", hypothesis_id=hypothesis.hypothesis_id)
+                continue
+            if len(state.hypotheses) >= state.config.max_hypotheses:
+                raise _ResourceLimit("max_hypotheses")
+            canonical_id = derive_hypothesis_id(hypothesis)
+            code_ids = [
+                evidence_id
+                for evidence_id in hypothesis.code_evidence_ids
+                if evidence_id in state.evidence_ids
+            ]
+            graph_ids = [
+                evidence_id
+                for evidence_id in hypothesis.graph_evidence_ids
+                if evidence_id in state.evidence_ids
+            ]
+            if not code_ids and not graph_ids:
+                # Prefer surface-bound issued evidence over dropping a grounded claim
+                # when the model invents IDs but names a profiled surface.
+                surface = next(
+                    (
+                        item
+                        for item in state.threat_surfaces
+                        if item.surface_id == hypothesis.surface_id
+                    ),
+                    None,
+                )
+                if surface is not None and surface.code_evidence_ids:
+                    code_ids = list(surface.code_evidence_ids)
+                elif state.evidence_ids:
+                    code_ids = [state.evidence_ids[0]]
+                else:
+                    continue
+            canonical = hypothesis.model_copy(
+                update={
+                    "hypothesis_id": canonical_id,
+                    "code_evidence_ids": code_ids,
+                    "graph_evidence_ids": graph_ids,
+                }
+            )
+            state.hypotheses[canonical_id] = HypothesisRecord(
+                hypothesis=canonical, status="debating", final_adjudication_id=None
+            )
+            known_keys.add(key)
+            added.append(canonical_id)
+        return added
+
+    async def _debate(self, state: AssessmentState, hypothesis_id: str) -> None:
+        unchanged_rounds = 0
+        thread_evidence = set(
+            state.hypotheses[hypothesis_id].hypothesis.code_evidence_ids
+            + state.hypotheses[hypothesis_id].hypothesis.graph_evidence_ids
+        )
+        last_rebuttal: DefenderRebuttal | None = None
+        last_response: RedResponse | None = None
+        for round_number in range(1, state.config.max_rounds_per_hypothesis + 1):
+            record = state.hypotheses[hypothesis_id]
+            if record.status != "debating":
+                return
+            before = set(thread_evidence)
+            try:
+                rebuttals = await self._turn(
+                    state,
+                    "code_team",
+                    _augment_prompt(
+                        (
+                            f"Falsify hypothesis {hypothesis_id} with concrete repository "
+                            "evidence. Prefer already-issued evidence_ids; at most 8 tool "
+                            "calls; return RebuttalBatch promptly."
+                        ),
+                        _GRILL_CODE_REBUTTAL,
+                        graph_enabled=False,
+                    ),
+                    RebuttalBatch,
+                    enable_subagents=state.config.sdk.enable_subagents_debate,
+                    max_turns=state.config.sdk.debate_max_turns,
+                )
+            except TeamTurnError as exc:
+                self._event(
+                    "debate_turn_failed",
+                    hypothesis_id=hypothesis_id,
+                    role="code_team",
+                    reason=str(exc)[:500],
+                )
+                await self._force_judge_or_interrupt(state, hypothesis_id, str(exc))
+                return
+            rebuttal = self._one_for_hypothesis(rebuttals.rebuttals, hypothesis_id)
+            if rebuttal is not None:
+                issued_new = [
+                    evidence_id
+                    for evidence_id in rebuttal.new_code_evidence_ids
+                    if evidence_id in state.evidence_ids
+                ]
+                last_rebuttal = rebuttal.model_copy(
+                    update={"new_code_evidence_ids": issued_new}
+                )
+                thread_evidence.update(issued_new)
+            try:
+                responses = await self._turn(
+                    state,
+                    "red_team",
+                    _augment_prompt(
+                        (
+                            f"Respond to the rebuttal for hypothesis {hypothesis_id}. "
+                            "Prefer already-issued evidence_ids; at most 8 tool calls; "
+                            "return RedResponseBatch promptly."
+                        ),
+                        _GRILL_RED_DEBATE,
+                        graph_enabled=self._graph_enabled,
+                    ),
+                    RedResponseBatch,
+                    enable_subagents=state.config.sdk.enable_subagents_debate,
+                    max_turns=state.config.sdk.debate_max_turns,
+                )
+            except TeamTurnError as exc:
+                self._event(
+                    "debate_turn_failed",
+                    hypothesis_id=hypothesis_id,
+                    role="red_team",
+                    reason=str(exc)[:500],
+                )
+                await self._force_judge_or_interrupt(state, hypothesis_id, str(exc))
+                return
+            response = self._one_for_hypothesis(responses.responses, hypothesis_id)
+            if response is not None:
+                issued_code = [
+                    evidence_id
+                    for evidence_id in response.new_code_evidence_ids
+                    if evidence_id in state.evidence_ids
+                ]
+                issued_graph = [
+                    evidence_id
+                    for evidence_id in response.new_graph_evidence_ids
+                    if evidence_id in state.evidence_ids
+                ]
+                last_response = response.model_copy(
+                    update={
+                        "new_code_evidence_ids": issued_code,
+                        "new_graph_evidence_ids": issued_graph,
+                    }
+                )
+                thread_evidence.update(issued_code + issued_graph)
+                if response.revised_hypothesis is not None:
+                    revised_code = [
+                        evidence_id
+                        for evidence_id in response.revised_hypothesis.code_evidence_ids
+                        if evidence_id in state.evidence_ids
+                    ]
+                    revised_graph = [
+                        evidence_id
+                        for evidence_id in response.revised_hypothesis.graph_evidence_ids
+                        if evidence_id in state.evidence_ids
+                    ]
+                    if not revised_code and not revised_graph:
+                        revised_code = list(
+                            state.hypotheses[hypothesis_id].hypothesis.code_evidence_ids
+                        )
+                        revised_graph = list(
+                            state.hypotheses[hypothesis_id].hypothesis.graph_evidence_ids
+                        )
+                    # The thread key remains stable so the current judge turn can
+                    # adjudicate it; the stored hypothesis always has a canonical ID.
+                    revised = response.revised_hypothesis.model_copy(
+                        update={
+                            "hypothesis_id": derive_hypothesis_id(
+                                response.revised_hypothesis
+                            ),
+                            "code_evidence_ids": revised_code,
+                            "graph_evidence_ids": revised_graph,
+                        }
+                    )
+                    state.hypotheses[hypothesis_id] = HypothesisRecord(
+                        hypothesis=revised,
+                        status="debating",
+                        final_adjudication_id=None,
+                    )
+            unchanged_rounds = unchanged_rounds + 1 if thread_evidence == before else 0
+            try:
+                adjudication = await self._turn(
+                    state,
+                    "judge",
+                    _augment_prompt(
+                        f"Adjudicate hypothesis {hypothesis_id}; return a terminal verdict at final round.",
+                        _GRILL_JUDGE,
+                        graph_enabled=self._graph_enabled,
+                    ),
+                    Adjudication,
+                    max_turns=state.config.sdk.judge_max_turns,
+                )
+            except TeamTurnError as exc:
+                self._event(
+                    "debate_turn_failed",
+                    hypothesis_id=hypothesis_id,
+                    role="judge",
+                    reason=str(exc)[:500],
+                )
+                await self._force_judge_or_interrupt(state, hypothesis_id, str(exc))
+                return
+            if adjudication.hypothesis_id != hypothesis_id:
+                raise ValueError("judge adjudicated a different hypothesis")
+            if (
+                round_number == state.config.max_rounds_per_hypothesis
+                or unchanged_rounds >= 2
+            ) and adjudication.verdict == "request_more_evidence":
+                raise ValueError("judge must issue a terminal verdict at convergence")
+            accepted_code = [
+                evidence_id
+                for evidence_id in adjudication.accepted_code_evidence_ids
+                if evidence_id in state.evidence_ids
+            ]
+            accepted_graph = [
+                evidence_id
+                for evidence_id in adjudication.accepted_graph_evidence_ids
+                if evidence_id in state.evidence_ids
+            ]
+            if (
+                adjudication.verdict in {"confirm", "reject", "duplicate"}
+                and not accepted_code
+                and not accepted_graph
+            ):
+                # Terminal verdicts still need one signed evidence item.
+                fallback = list(thread_evidence)[:1] or list(state.evidence_ids)[:1]
+                accepted_code = fallback
+            adjudication = adjudication.model_copy(
+                update={
+                    "accepted_code_evidence_ids": accepted_code,
+                    "accepted_graph_evidence_ids": accepted_graph,
+                }
+            )
+            state.apply_adjudication(adjudication)
+            if adjudication.verdict == "confirm":
+                self._add_finding(
+                    state,
+                    adjudication,
+                    rebuttal=last_rebuttal,
+                    red_response=last_response,
+                )
+            self._checkpoint(state)
+            if state.hypotheses[hypothesis_id].status != "debating":
+                return
+
+    async def _force_judge_or_interrupt(
+        self,
+        state: AssessmentState,
+        hypothesis_id: str,
+        reason: str,
+    ) -> None:
+        """Best-effort terminal judgment after a debate turn SDK failure."""
+        try:
+            adjudication = await self._turn(
+                state,
+                "judge",
+                _augment_prompt(
+                    (
+                        f"A prior debate turn failed ({reason[:200]}). "
+                        f"Issue a terminal judgment for {hypothesis_id}: "
+                        "confirm, reject, or duplicate. Cite issued evidence_ids only."
+                    ),
+                    _GRILL_JUDGE,
+                    graph_enabled=self._graph_enabled,
+                ),
+                Adjudication,
+                max_turns=state.config.sdk.judge_max_turns,
+            )
+            if (
+                adjudication.hypothesis_id != hypothesis_id
+                or adjudication.verdict == "request_more_evidence"
+            ):
+                raise ValueError("forced final judgment was not terminal")
+            accepted_code = [
+                evidence_id
+                for evidence_id in adjudication.accepted_code_evidence_ids
+                if evidence_id in state.evidence_ids
+            ]
+            accepted_graph = [
+                evidence_id
+                for evidence_id in adjudication.accepted_graph_evidence_ids
+                if evidence_id in state.evidence_ids
+            ]
+            if not accepted_code and not accepted_graph:
+                hypothesis = state.hypotheses[hypothesis_id].hypothesis
+                accepted_code = list(hypothesis.code_evidence_ids)[:1] or list(
+                    state.evidence_ids
+                )[:1]
+            adjudication = adjudication.model_copy(
+                update={
+                    "accepted_code_evidence_ids": accepted_code,
+                    "accepted_graph_evidence_ids": accepted_graph,
+                }
+            )
+            state.apply_adjudication(adjudication)
+            if adjudication.verdict == "confirm":
+                self._add_finding(state, adjudication)
+            self._checkpoint(state)
+        except Exception as exc:  # keep the run resumable
+            self._event(
+                "forced_finalization_failed",
+                hypothesis_id=hypothesis_id,
+                error=str(exc)[:500],
+            )
+            state.phase = "interrupted"
+            self._event("resource_cap_reached", reason=reason[:500])
+            self._checkpoint(state)
+
+    async def _generate_test_drafts(
+        self,
+        state: AssessmentState,
+        *,
+        allow_over_cap: bool = False,
+    ) -> None:
+        from saads_grill_agent.test_artifacts import TestArtifactPolicyError
+
+        profile = state.profile
+        if profile is not None and not profile.test_frameworks:
+            inferred = self._store.infer_test_frameworks()
+            if inferred:
+                state.profile = profile.model_copy(update={"test_frameworks": inferred})
+                self._checkpoint(state)
+
+        for finding in state.findings:
+            try:
+                frameworks = (
+                    ", ".join(state.profile.test_frameworks)
+                    if state.profile and state.profile.test_frameworks
+                    else "pytest"
+                )
+                draft = await self._turn(
+                    state,
+                    "red_team",
+                    (
+                        f"Generate a non-executing regression test draft for "
+                        f"{finding.finding_id}. Use one of these frameworks: "
+                        f"{frameworks}. Return GeneratedTestDraft only."
+                    ),
+                    GeneratedTestDraft,
+                    enable_subagents=state.config.sdk.enable_subagents_discovery,
+                    max_turns=state.config.sdk.debate_max_turns,
+                    allow_over_cap=allow_over_cap,
+                )
+                if draft.finding_id != finding.finding_id:
+                    raise ValueError("test draft does not match its finding")
+                finding.generated_test_ids.append(draft.test_id)
+                if self._publish_test_draft is not None:
+                    self._publish_test_draft(draft, finding, state)
+            except (TeamTurnError, TestArtifactPolicyError, ValueError) as exc:
+                self._event(
+                    "test_draft_failed",
+                    finding_id=finding.finding_id,
+                    reason=str(exc)[:500],
+                )
+            self._checkpoint(state)
+
+    async def _turn(
+        self,
+        state: AssessmentState,
+        role: str,
+        prompt: str,
+        output_model: type[BaseModel],
+        *,
+        enable_subagents: bool = True,
+        max_turns: int | None = None,
+        allow_over_cap: bool = False,
+    ) -> Any:
+        """Run one team turn.
+
+        ``allow_over_cap`` is for wind-down only (forced judge / test drafts after
+        a hard scheduling or cost ceiling) so an assessment can close cleanly.
+        """
+        if (
+            not allow_over_cap
+            and state.config.max_agent_calls is not None
+            and state.agent_calls_used >= state.config.max_agent_calls
+        ):
+            raise _ResourceLimit("max_agent_calls")
+        if not allow_over_cap:
+            state.phase = {
+                ProfileResult: "profiling",
+                HypothesisBatch: "discovery",
+                RebuttalBatch: "debating",
+                RedResponseBatch: "debating",
+                Adjudication: "adjudicating",
+                GeneratedTestDraft: "generating_tests",
+            }[output_model]
+        self._checkpoint(state)
+        result = await self._backend.run_turn(
+            role=role,
+            prompt=prompt,
+            output_model=output_model,
+            session_id=state.team_sessions.get(role),
+            audits=TeamTurnAudits(),
+            enable_subagents=enable_subagents,
+            max_turns=max_turns,
+        )
+        self._sync_issued_evidence(state)
+        state.team_sessions[role] = result.session_id
+        state.agent_calls_used += 1
+        if result.total_cost_usd is None:
+            self._event("missing_cost_metadata", role=role)
+            if not allow_over_cap and state.config.max_cost_usd is not None:
+                raise _ResourceLimit("missing_cost_metadata")
+        else:
+            state.cost_usd_used += result.total_cost_usd
+            if (
+                not allow_over_cap
+                and state.config.max_cost_usd is not None
+                and state.cost_usd_used >= state.config.max_cost_usd
+            ):
+                raise _ResourceLimit("max_cost_usd")
+        return result.output
+
+    def _sync_issued_evidence(self, state: AssessmentState) -> None:
+        """Register evidence IDs issued by MCP tools during the latest turn."""
+        issued: list[str] = []
+        for item in self._code_audit:
+            evidence_id = getattr(item, "evidence_id", None)
+            if isinstance(evidence_id, str) and evidence_id:
+                issued.append(evidence_id)
+        for item in self._graph_audit:
+            evidence_id = getattr(item, "evidence_id", None)
+            if isinstance(evidence_id, str) and evidence_id:
+                issued.append(evidence_id)
+        if not issued:
+            return
+        self._ledger.record_issued_evidence(*issued)
+        state.register_evidence(*issued)
+
+    async def _interrupt(self, state: AssessmentState, reason: str) -> AssessmentState:
+        state.phase = "interrupted"
+        self._event("resource_cap_reached", reason=reason)
+        # Wind-down: close open debates and draft tests even if the hard cap was hit.
+        await self._finalize_active_hypotheses(state, allow_over_cap=True)
+        try:
+            await self._generate_test_drafts(state, allow_over_cap=True)
+        except Exception as exc:  # noqa: BLE001 - keep partial run resumable
+            self._event("wind_down_test_drafts_failed", error=str(exc)[:500])
+        self._checkpoint(state)
+        return state
+
+    async def _finalize_active_hypotheses(
+        self,
+        state: AssessmentState,
+        *,
+        allow_over_cap: bool = False,
+    ) -> None:
+        """Ask the judge for a terminal decision after resource exhaustion."""
+        for hypothesis_id, record in list(state.hypotheses.items()):
+            if record.status != "debating":
+                continue
+            if not allow_over_cap:
+                if (
+                    state.config.max_agent_calls is not None
+                    and state.agent_calls_used >= state.config.max_agent_calls
+                ):
+                    return
+                if (
+                    state.config.max_cost_usd is not None
+                    and state.cost_usd_used >= state.config.max_cost_usd
+                ):
+                    return
+            try:
+                adjudication = await self._turn(
+                    state,
+                    "judge",
+                    _augment_prompt(
+                        f"Resource limit reached. Issue a terminal judgment for {hypothesis_id}.",
+                        _GRILL_JUDGE,
+                        graph_enabled=self._graph_enabled,
+                    ),
+                    Adjudication,
+                    max_turns=state.config.sdk.judge_max_turns,
+                    allow_over_cap=allow_over_cap,
+                )
+                if (
+                    adjudication.hypothesis_id != hypothesis_id
+                    or adjudication.verdict == "request_more_evidence"
+                ):
+                    raise ValueError("forced final judgment was not terminal")
+                state.apply_adjudication(adjudication)
+                if adjudication.verdict == "confirm":
+                    self._add_finding(state, adjudication)
+            except Exception as exc:  # preserve the checkpointed partial assessment
+                self._event("forced_finalization_failed", hypothesis_id=hypothesis_id, error=str(exc))
+
+    def _normalize_profile_evidence(
+        self, state: AssessmentState, profile: ProfileResult
+    ) -> ProfileResult:
+        """Bind profile citations to MCP-issued IDs; drop invented paths/IDs."""
+        issued = list(state.evidence_ids)
+        if not issued:
+            raise ValueError(
+                "profiling produced no signed repository evidence; "
+                "call read_repository_snippet before citing evidence_id values"
+            )
+
+        def keep(ids: list[str]) -> list[str]:
+            kept = [evidence_id for evidence_id in ids if evidence_id in state.evidence_ids]
+            return kept or [issued[0]]
+
+        frameworks = list(profile.profile.test_frameworks)
+        if not frameworks:
+            frameworks = self._store.infer_test_frameworks()
+        normalized_profile = profile.profile.model_copy(
+            update={
+                "snapshot_id": state.snapshot_id,
+                "profile_evidence_ids": keep(profile.profile.profile_evidence_ids),
+                "test_frameworks": frameworks,
+            }
+        )
+        surfaces = [
+            surface.model_copy(
+                update={"code_evidence_ids": keep(surface.code_evidence_ids)}
+            )
+            for surface in profile.threat_surfaces
+        ]
+        return ProfileResult(profile=normalized_profile, threat_surfaces=surfaces)
+
+    def _require_profile_evidence(self, state: AssessmentState, profile: ProfileResult) -> None:
+        self._require_issued(state, *profile.profile.profile_evidence_ids)
+        for surface in profile.threat_surfaces:
+            self._require_issued(state, *surface.code_evidence_ids)
+
+    @staticmethod
+    def _require_issued(state: AssessmentState, *evidence_ids: str) -> None:
+        for evidence_id in evidence_ids:
+            if evidence_id not in state.evidence_ids:
+                raise ValueError(f"unknown evidence id: {evidence_id}")
+
+    @staticmethod
+    def _one_for_hypothesis(items: list[Any], hypothesis_id: str) -> Any | None:
+        return next((item for item in items if item.hypothesis_id == hypothesis_id), None)
+
+    @staticmethod
+    def _hypothesis_key(hypothesis: VulnerabilityHypothesis) -> str:
+        return derive_hypothesis_id(hypothesis)
+
+    @staticmethod
+    def _add_finding(
+        state: AssessmentState,
+        adjudication: Adjudication,
+        *,
+        rebuttal: DefenderRebuttal | None = None,
+        red_response: RedResponse | None = None,
+    ) -> None:
+        hypothesis = state.hypotheses[adjudication.hypothesis_id].hypothesis
+        if any(finding.hypothesis_id == hypothesis.hypothesis_id for finding in state.findings):
+            return
+        strongest_rebuttal = list(rebuttal.arguments) if rebuttal is not None else []
+        rebuttal_failure_reason = ""
+        if rebuttal is not None and red_response is not None:
+            rebuttal_failure_reason = " ".join(red_response.reasoning)
+        state.findings.append(Finding(
+            finding_id=f"finding-{hypothesis.hypothesis_id}",
+            hypothesis_id=hypothesis.hypothesis_id,
+            severity="medium",
+            confidence=confidence_level(adjudication.confidence),
+            confidence_score=adjudication.confidence,
+            root_cause=hypothesis.root_cause,
+            attack_path=hypothesis.attack_path,
+            impact=hypothesis.impact,
+            preconditions=hypothesis.preconditions,
+            code_evidence_ids=adjudication.accepted_code_evidence_ids,
+            graph_evidence_ids=adjudication.accepted_graph_evidence_ids,
+            judge_rationale=list(adjudication.rationale),
+            strongest_rebuttal=strongest_rebuttal,
+            rebuttal_failure_reason=rebuttal_failure_reason,
+            remediation="Validate untrusted input before it crosses this trust boundary.",
+        ))
+
+    def _checkpoint(self, state: AssessmentState) -> None:
+        self._ledger.checkpoint(state)
+
+    def _event(self, event: str, **details: Any) -> None:
+        self._ledger.append_event(event, **details)

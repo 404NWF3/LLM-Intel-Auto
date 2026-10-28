@@ -45,13 +45,18 @@ def test_sdk_mcp_modules_import_from_a_clean_process():
     assert result.returncode == 0, result.stderr
 
 
-def test_adaptive_mcp_surface_contains_only_the_planned_whitelist():
+def test_adaptive_mcp_surface_contains_only_the_planned_whitelist(monkeypatch):
     from intel_agent.tools.server import build_round_server
 
+    monkeypatch.setenv("INTEL_COMMUNITY_SOURCES", "hackernews,discourse")
     ctx = _ctx()
     ctx.adaptive = True
     _, allowed = build_round_server(ctx)
-    assert len(allowed) == 8
+    assert len(allowed) == 10
+    assert "mcp__intel_sources__search_hackernews" in allowed
+    assert "mcp__intel_sources__search_hf_forum" in allowed
+    assert "mcp__intel_sources__search_github_issues" not in allowed
+    assert "mcp__intel_sources__search_reddit" not in allowed
     assert all(not name.endswith("__record_technique") for name in allowed)
     assert any(name.endswith("__get_collection_state") for name in allowed)
     assert any(name.endswith("__score_query_candidates") for name in allowed)

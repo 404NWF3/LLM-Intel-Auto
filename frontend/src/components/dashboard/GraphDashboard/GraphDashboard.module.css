@@ -1,0 +1,129 @@
+.pipeline {
+  margin: 0 0 24px;
+  padding: 24px;
+  background: #fbfaf5;
+  border: 1px solid #dedbcc;
+  border-radius: 14px;
+}
+.pipelineHeading {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+.pipelineHeading > span:last-child {
+  font-size: 10px;
+  color: #92866f;
+}
+.pipelineSteps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  margin: 22px 0;
+}
+.pipelineSteps > div {
+  display: flex;
+  gap: 14px;
+  color: #7e896c;
+}
+.pipelineSteps small {
+  font-size: 10px;
+  color: #9a8a72;
+}
+.pipelineSteps strong {
+  display: block;
+  margin: 8px 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: #545a49;
+}
+.pipelineSteps p,
+.pipelineSteps a {
+  font-size: 10px;
+  color: #8f826b;
+  margin: 0;
+}
+.pipelineSteps a {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+  gap: 4px;
+}
+.graphForm {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 140px 180px;
+  align-items: end;
+  gap: 14px;
+  border-top: 1px solid #e7e1d5;
+  padding-top: 18px;
+}
+.graphForm label,
+.graphForm button {
+  margin: 0;
+}
+.graphForm button {
+  height: 39px;
+}
+.graphFoot {
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  margin-top: 12px;
+  align-items: start;
+}
+.graphFoot p,
+.graphMeta {
+  font-size: 10px;
+  color: #9a8b74;
+  line-height: 1.8;
+  margin: 0;
+}
+.graphFoot button {
+  border: 0;
+  background: none;
+  white-space: nowrap;
+  font-size: 10px;
+  color: #6d7e5c;
+  cursor: pointer;
+  padding: 0;
+}
+.graphMeta {
+  margin-top: 8px;
+}
+
+@media (max-width: 900px) {
+  .pipelineHeading {
+    align-items: start;
+    flex-direction: column;
+  }
+  .pipelineSteps {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+  .graphForm {
+    grid-template-columns: minmax(0, 1fr) 110px;
+  }
+  .graphForm button {
+    grid-column: 1 / -1;
+  }
+  .graphFoot {
+    flex-direction: column;
+  }
+}
+.results {
+  margin-top: 22px;
+  margin-bottom: 30px;
+}
+.notice {
+  padding: 12px 16px;
+  border: 1px solid #e9dec5;
+  border-radius: 8px;
+  background: #f6f0e1;
+  color: #99743d;
+  font-size: 11px;
+  line-height: 1.8;
+}
+.notice a {
+  color: inherit;
+  margin-left: 8px;
+}

@@ -46,6 +46,17 @@ ITEM_HEADERS = [
     "run_ids",
 ]
 
+EXPORT_ITEM_HEADERS = [*ITEM_HEADERS, "raw_text", "metadata", "fetched_at", "extraction_notes"]
+
+
+def _export_item_rows(docs: list[dict[str, Any]]) -> list[list[Any]]:
+    """Export source fields, never the shortened display-table cells."""
+    return [
+        [json.dumps(doc.get(key), ensure_ascii=False) if isinstance(doc.get(key), (dict, list))
+         else doc.get(key, "") for key in EXPORT_ITEM_HEADERS]
+        for doc in docs
+    ]
+
 
 def _safe_name(value: str) -> str:
     return re.sub(r"[^a-zA-Z0-9_.-]+", "_", value).strip("._") or "export"
@@ -151,7 +162,7 @@ def query_items_panel(
     except Exception as exc:  # noqa: BLE001
         return f"Failed to query items: {exc.__class__.__name__}: {exc}", [], None
     table = _item_table(docs)
-    path = _write_csv(ITEM_HEADERS, table, "items") if table else None
+    path = _write_csv(EXPORT_ITEM_HEADERS, _export_item_rows(docs), "items") if table else None
     return f"{len(table)} item(s)", table, path
 
 
@@ -177,7 +188,7 @@ def load_run_detail(run_id: str) -> tuple[str, list[list[Any]], str | None]:
             docs.append(raw)
 
     table = _item_table(docs)
-    path = _write_csv(ITEM_HEADERS, table, f"run_{rid}_items") if table else None
+    path = _write_csv(EXPORT_ITEM_HEADERS, _export_item_rows(docs), f"run_{rid}_items") if table else None
     summary = {
         "run_id": payload.get("run_id"),
         "status": payload.get("status"),

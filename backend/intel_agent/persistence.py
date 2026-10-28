@@ -10,11 +10,13 @@ from __future__ import annotations
 
 import json
 import re
+from copy import deepcopy
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from .schemas import IntelRunBlackboard, RawIntelItem, RawIntelItemBatch, SourceCheckpoint
+from .content import merge_item_documents
 from .topics import EXTENDED_SECURITY_TOPICS
 
 DEFAULT_INTEL_RUN_DIR = Path("data") / "intel_runs"
@@ -27,6 +29,18 @@ class JsonIntelRunStore:
         root_dir: str | Path = DEFAULT_INTEL_RUN_DIR,
     ) -> None:
         self.root_dir = Path(root_dir)
+        self._payload_cache: dict[Path, tuple[tuple[int, int], dict[str, Any]]] = {}
+        self._items_cache: tuple[tuple, dict[str, dict[str, Any]]] | None = None
+
+    def _read_payload(self, path: Path) -> dict[str, Any]:
+        stat = path.stat()
+        stamp = (stat.st_mtime_ns, stat.st_size)
+        cached = self._payload_cache.get(path)
+        if cached and cached[0] == stamp:
+            return cached[1]
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        self._payload_cache[path] = (stamp, payload)
+        return payload
 
     def run_path(self, run_id: str) -> Path:
         return self.root_dir / f"{_safe_run_id(run_id)}.json"
@@ -42,6 +56,15 @@ class JsonIntelRunStore:
     ) -> Path:
         self.root_dir.mkdir(parents=True, exist_ok=True)
         saved_at = _utcnow_iso()
+        existing = {doc["item_id"]: doc for doc in self.query_items(limit=100_000)}
+        blackboard = blackboard.model_copy(deep=True)
+        merged = []
+        for item in blackboard.raw_items:
+            doc = item.model_dump(mode="json")
+            doc.setdefault("last_run_id", blackboard.run_id)
+            doc.setdefault("last_seen_at", saved_at)
+            merged.append(RawIntelItem.model_validate(merge_item_documents(doc, existing.get(item.item_id, {}))))
+        blackboard.raw_items = merged
         path = self.run_path(blackboard.run_id)
         payload = {
             "schema_version": 3,
@@ -74,7 +97,7 @@ class JsonIntelRunStore:
         return path
 
     def load_run_payload(self, run_id: str) -> dict[str, Any]:
-        return json.loads(self.run_path(run_id).read_text(encoding="utf-8"))
+        return deepcopy(self._read_payload(self.run_path(run_id)))
 
     def load_latest_payload(self) -> dict[str, Any] | None:
         index_path = self.latest_index_path()
@@ -85,9 +108,9 @@ class JsonIntelRunStore:
         if not name:
             return None
         path = self.root_dir / str(name)
-        return json.loads(path.read_text(encoding="utf-8")) if path.exists() else None
+        return deepcopy(self._read_payload(path)) if path.exists() else None
 
-    def list_run_paths(self, limit: int = 20) -> list[Path]:
+    def list_run_paths(self, limit: int | None = 20) -> list[Path]:
         if not self.root_dir.exists():
             return []
         paths = [p for p in self.root_dir.glob("*.json") if p.name != LATEST_INDEX_NAME]
@@ -98,7 +121,7 @@ class JsonIntelRunStore:
         boards: list[IntelRunBlackboard] = []
         for path in self.list_run_paths(limit=limit):
             try:
-                payload = json.loads(path.read_text(encoding="utf-8"))
+                payload = self._read_payload(path)
                 boards.append(IntelRunBlackboard.model_validate(payload["blackboard"]))
             except (OSError, json.JSONDecodeError, KeyError, ValueError):
                 continue
@@ -106,11 +129,13 @@ class JsonIntelRunStore:
 
     def load_corpus_items(self) -> list[RawIntelItem]:
         """Load the complete JSON corpus once, de-duplicated by natural item id."""
-        by_id: dict[str, RawIntelItem] = {}
-        for blackboard in reversed(self.load_all_blackboards(limit=100_000)):
-            for item in blackboard.raw_items:
-                by_id[item.item_id] = item
-        return list(by_id.values())
+        items = []
+        for doc in self.query_items(limit=100_000):
+            try:
+                items.append(RawIntelItem.model_validate(doc))
+            except ValueError:
+                continue
+        return items
 
     def load_source_checkpoints(self) -> list[SourceCheckpoint]:
         latest: dict[str, SourceCheckpoint] = {}
@@ -142,16 +167,16 @@ class JsonIntelRunStore:
         return f"json:{self.root_dir}"
 
     def run_count(self) -> int:
-        return len(self.list_run_paths(limit=10_000))
+        return len(self.list_run_paths(limit=None))
 
     def distinct_item_count(self) -> int:
-        return len(self.query_items(limit=100_000))
+        return len(self.query_items(limit=None))
 
     def list_run_summaries(self, limit: int = 50) -> list[dict[str, Any]]:
         rows: list[dict[str, Any]] = []
         for path in self.list_run_paths(limit=limit):
             try:
-                payload = json.loads(path.read_text(encoding="utf-8"))
+                payload = self._read_payload(path)
             except (OSError, json.JSONDecodeError):
                 continue
             summary = payload.get("summary") or {}
@@ -182,23 +207,32 @@ class JsonIntelRunStore:
         topic: str | None = None,
         text: str | None = None,
         run_id: str | None = None,
-        limit: int = 200,
+        limit: int | None = 200,
     ) -> list[dict[str, Any]]:
-        """Flatten items from JSON run files (best-effort dedup by item_id)."""
+        """Flatten run files, deduplicating by item_id; None exports all items."""
         source = (source_name or "").strip().lower()
         topic_f = (topic or "").strip().lower()
         needle = (text or "").strip().lower()
         run_f = (run_id or "").strip()
-        by_id: dict[str, dict[str, Any]] = {}
-        paths = self.list_run_paths(limit=500)
+        paths = self.list_run_paths(limit=None)
+        signature = tuple((str(p), p.stat().st_mtime_ns, p.stat().st_size) for p in paths)
+        if self._items_cache and self._items_cache[0] == signature:
+            by_id = self._items_cache[1]
+            paths = []
+        else:
+            by_id: dict[str, dict[str, Any]] = {}
+            def saved_at(path: Path) -> str:
+                try:
+                    return self._read_payload(path).get("saved_at") or ""
+                except (OSError, json.JSONDecodeError):
+                    return ""
+            paths = sorted(paths, key=saved_at, reverse=True)
         for path in paths:
             try:
-                payload = json.loads(path.read_text(encoding="utf-8"))
+                payload = self._read_payload(path)
             except (OSError, json.JSONDecodeError):
                 continue
             rid = str(payload.get("run_id") or "")
-            if run_f and rid != run_f:
-                continue
             for raw in (payload.get("blackboard") or {}).get("raw_items") or []:
                 item_id = str(raw.get("item_id") or "")
                 if not item_id:
@@ -208,21 +242,22 @@ class JsonIntelRunStore:
                     **raw,
                     "item_id": item_id,
                     "topics": topics,
-                    "run_ids": [rid] if rid else [],
-                    "last_run_id": rid or None,
+                    "run_ids": list(dict.fromkeys([*(raw.get("run_ids") or []), *([rid] if rid else [])])),
+                    "last_run_id": raw.get("last_run_id") or rid or None,
+                    "last_seen_at": raw.get("last_seen_at") or payload.get("saved_at"),
+                    "first_run_id": raw.get("first_run_id") or rid or None,
+                    "first_seen_at": raw.get("first_seen_at") or payload.get("saved_at"),
                 }
                 if item_id in by_id:
-                    existing = by_id[item_id]
-                    run_ids = list(existing.get("run_ids") or [])
-                    if rid and rid not in run_ids:
-                        run_ids.append(rid)
-                    existing["run_ids"] = run_ids
-                    existing["last_run_id"] = rid or existing.get("last_run_id")
+                    by_id[item_id] = merge_item_documents(by_id[item_id], doc)
                 else:
                     by_id[item_id] = doc
 
+        self._items_cache = (signature, by_id)
         rows: list[dict[str, Any]] = []
         for doc in by_id.values():
+            if run_f and run_f not in doc.get("run_ids", []):
+                continue
             if source and str(doc.get("source_name") or "").lower() != source:
                 continue
             topics = [str(t).lower() for t in (doc.get("topics") or [])]
@@ -238,8 +273,8 @@ class JsonIntelRunStore:
                 ).lower()
                 if needle not in blob:
                     continue
-            rows.append(doc)
-            if len(rows) >= max(1, int(limit)):
+            rows.append(deepcopy(doc))
+            if limit is not None and len(rows) >= max(1, int(limit)):
                 break
         return rows
 
@@ -252,10 +287,32 @@ class JsonIntelRunStore:
         return sorted(sources)
 
     def get_item(self, item_id: str) -> dict[str, Any] | None:
-        for doc in self.query_items(limit=10_000):
+        for doc in self.query_items(text=item_id, limit=100_000):
             if str(doc.get("item_id") or doc.get("_id")) == item_id:
                 return doc
         return None
+
+    def update_item_texts(self, updates: dict[str, dict[str, Any]]) -> int:
+        """Patch every persisted occurrence without changing run status/timestamps."""
+        changed: set[str] = set()
+        for path in self.list_run_paths(limit=100_000):
+            payload = deepcopy(self._read_payload(path))
+            rows = list((payload.get("blackboard") or {}).get("raw_items") or [])
+            for batch in payload.get("raw_item_batches") or []:
+                rows.extend(batch.get("items") or [])
+            dirty = False
+            for row in rows:
+                patch = updates.get(row.get("item_id"))
+                if patch:
+                    row.update({key: value for key, value in patch.items() if key != "metadata"})
+                    row.setdefault("metadata", {}).update(patch.get("metadata", {}))
+                    dirty = True
+                    changed.add(row["item_id"])
+            if dirty:
+                temporary = path.with_suffix(".json.tmp")
+                temporary.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+                temporary.replace(path)
+        return len(changed)
 
     def _summary(
         self, blackboard: IntelRunBlackboard, batches: list[RawIntelItemBatch]

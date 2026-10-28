@@ -1,0 +1,144 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   HeroSection.module.css
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* ── Title accent underline ─────────────────────────────────────────────── */
+.titleAccent {
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+  text-underline-offset: 0.15em;
+  text-decoration-thickness: 2px;
+}
+
+/* ── Scroll indicator ───────────────────────────────────────────────────── */
+.scrollIndicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: var(--space-4);
+  font-size: 0.82rem;
+  color: var(--text-faint);
+}
+
+.scrollArrow {
+  display: inline-block;
+  animation: heroArrowBounce 1.8s ease-in-out infinite;
+}
+
+@keyframes heroArrowBounce {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(5px);
+  }
+}
+
+/* ── Panel header ───────────────────────────────────────────────────────── */
+.panelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-3);
+}
+
+.panelTitle {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.panelLive {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--status-running);
+  letter-spacing: 0.04em;
+}
+
+.liveDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--status-running);
+  animation: pulse-dot var(--duration-pulse) ease-in-out infinite;
+}
+
+/* ── SVG network diagram ────────────────────────────────────────────────── */
+.networkSvg {
+  width: 100%;
+  height: auto;
+  display: block;
+  margin-block: var(--space-2);
+}
+
+.flowLine {
+  animation: flow-dash 1.4s linear infinite;
+}
+
+.pulseDot {
+  animation: pulse-dot var(--duration-pulse) ease-in-out infinite;
+}
+
+/* ── Recent intel list ──────────────────────────────────────────────────── */
+.recentIntel {
+  border-top: 1px solid var(--line);
+  padding-top: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+.intelHeader {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-bottom: var(--space-2);
+}
+
+.intelItem {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: var(--space-2);
+  align-items: center;
+  padding: 0.28rem 0;
+  font-size: 0.73rem;
+}
+
+.intelItem + .intelItem {
+  border-top: 1px solid rgba(23, 21, 18, 0.05);
+}
+
+.intelId {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--accent);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.intelDesc {
+  color: var(--text-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.intelTime {
+  color: var(--text-faint);
+  font-size: 0.68rem;
+  white-space: nowrap;
+}
+
+/* ── Responsive ─────────────────────────────────────────────────────────── */
+@media (max-width: 860px) {
+  .scrollIndicator {
+    display: none;
+  }
+}

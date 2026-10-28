@@ -1,0 +1,834 @@
+from __future__ import annotations
+
+import asyncio
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
+
+import pytest
+
+from saads_grill_agent.contracts import (
+    Adjudication,
+    AssessmentConfig,
+    DefenderRebuttal,
+    Finding,
+    GeneratedTestDraft,
+    RedResponse,
+    RepositoryProfile,
+    ThreatSurface,
+    VulnerabilityHypothesis,
+)
+from saads_grill_agent.orchestrator import (
+    AssessmentOrchestrator,
+    ProfileResult,
+    derive_hypothesis_id,
+)
+from saads_grill_agent.repository import RepositoryEvidenceStore
+from saads_grill_agent.teams import (
+    DEBATE_MAX_TURNS,
+    DISCOVERY_MAX_TURNS,
+    HypothesisBatch,
+    RebuttalBatch,
+    RedResponseBatch,
+    TeamTurnAudits,
+    TeamTurnError,
+    TeamTurnResult,
+)
+
+
+@dataclass
+class FakeLedger:
+    checkpoints: list[Any] = field(default_factory=list)
+    events: list[dict[str, Any]] = field(default_factory=list)
+    _issued_evidence_ids: list[str] = field(default_factory=list)
+
+    def checkpoint(self, state: Any) -> None:
+        self.checkpoints.append(state.model_copy(deep=True))
+
+    def append_event(self, event: str, **details: Any) -> None:
+        self.events.append({"event": event, **details})
+
+    def record_issued_evidence(self, *evidence_ids: str) -> None:
+        for evidence_id in evidence_ids:
+            if evidence_id not in self._issued_evidence_ids:
+                self._issued_evidence_ids.append(evidence_id)
+
+    def list_issued_evidence(self) -> list[str]:
+        return list(self._issued_evidence_ids)
+
+
+class ScriptedTeamBackend:
+    def __init__(self, outputs: list[Any], costs: list[float | None] | None = None) -> None:
+        self.outputs = list(outputs)
+        self.costs = costs or [0.01] * len(outputs)
+        self.role_order: list[str] = []
+        self.session_ids: list[str | None] = []
+        self.prompts: list[tuple[str, str]] = []
+
+    async def run_turn(
+        self,
+        *,
+        role: str,
+        prompt: str,
+        output_model: type[Any],
+        session_id: str | None,
+        audits: TeamTurnAudits,
+        max_turns: int | None = None,
+        enable_subagents: bool = True,
+    ) -> TeamTurnResult:
+        self.role_order.append(role)
+        self.session_ids.append(session_id)
+        self.prompts.append((role, prompt))
+        self.last_enable_subagents = enable_subagents
+        self.last_max_turns = max_turns
+        self.max_turns_by_role = getattr(self, "max_turns_by_role", [])
+        self.max_turns_by_role.append((role, max_turns))
+        output = self.outputs.pop(0)
+        return TeamTurnResult(
+            output=output_model.model_validate(output),
+            session_id=f"{role}-{len(self.role_order)}",
+            total_cost_usd=self.costs.pop(0),
+            usage=None,
+        )
+
+
+def config(repo: Path, **overrides: Any) -> AssessmentConfig:
+    return AssessmentConfig(target_repo=repo, **overrides)
+
+
+def profile_result(snapshot_id: str, surfaces: int = 1) -> ProfileResult:
+    evidence_ids = [f"code-profile-{index}" for index in range(surfaces)]
+    profile = RepositoryProfile(
+        snapshot_id=snapshot_id,
+        model_provider="test",
+        model_name="test-model",
+        agent_framework="test-framework",
+        frontend_roots=["web"],
+        backend_roots=["app"],
+        model_call_sites=["app/model.py"],
+        prompt_assembly_sites=["app/prompt.py"],
+        tool_definition_sites=["app/tools.py"],
+        retrieval_and_ingestion_sites=["app/rag.py"],
+        memory_sites=[],
+        authn_authz_sites=["app/auth.py"],
+        output_interpretation_sites=["app/output.py"],
+        test_frameworks=["pytest"],
+        profile_evidence_ids=evidence_ids,
+        supplied_profile_conflicts=[],
+    )
+    threat_surfaces = [
+        ThreatSurface(
+            surface_id=f"surface-{index}",
+            kind="prompt_boundary",
+            name=f"Prompt boundary {index}",
+            entrypoints=["request"],
+            trust_transition="untrusted input reaches prompt",
+            assets=["system prompt"],
+            code_evidence_ids=[evidence_ids[index]],
+        )
+        for index in range(surfaces)
+    ]
+    return ProfileResult(profile=profile, threat_surfaces=threat_surfaces)
+
+
+def hypothesis(
+    hypothesis_id: str = "hyp-pi-1",
+    surface_id: str = "surface-0",
+    root_cause: str = "Untrusted context reaches the model prompt",
+    attack_path: list[str] | None = None,
+) -> VulnerabilityHypothesis:
+    result = VulnerabilityHypothesis(
+        hypothesis_id=hypothesis_id,  # ignored by the orchestrator
+        surface_id=surface_id,
+        title="Prompt injection",
+        root_cause=root_cause,
+        attack_path=attack_path or ["request input", "model invocation"],
+        impact="Instruction hijack",
+        preconditions=["attacker controls input"],
+        code_evidence_ids=["code-hypothesis"],
+        graph_evidence_ids=[],
+    )
+    return result.model_copy(update={"hypothesis_id": derive_hypothesis_id(result)})
+
+
+def rebuttal(hypothesis_id: str | None = None, evidence: list[str] | None = None) -> RebuttalBatch:
+    hypothesis_id = hypothesis_id or hypothesis().hypothesis_id
+    return RebuttalBatch(rebuttals=[DefenderRebuttal(
+        hypothesis_id=hypothesis_id,
+        round_number=1,
+        disposition="mitigated",
+        arguments=["A partial filter exists."],
+        new_code_evidence_ids=["code-filter"] if evidence is None else evidence,
+        unresolved_conditions=["Bypass behavior"],
+    )])
+
+
+def red_response(
+    hypothesis_id: str | None = None,
+    disposition: str = "stand",
+    evidence: list[str] | None = None,
+) -> RedResponseBatch:
+    hypothesis_id = hypothesis_id or hypothesis().hypothesis_id
+    return RedResponseBatch(responses=[RedResponse(
+        hypothesis_id=hypothesis_id,
+        round_number=1,
+        disposition=disposition,  # type: ignore[arg-type]
+        reasoning=["The filter is bypassable."],
+        revised_hypothesis=None,
+        new_code_evidence_ids=["code-bypass"] if evidence is None else evidence,
+        new_graph_evidence_ids=[],
+    )])
+
+
+def adjudication(
+    verdict: str = "confirm",
+    hypothesis_id: str | None = None,
+    round_number: int = 1,
+    accepted_evidence: str = "code-bypass",
+) -> Adjudication:
+    hypothesis_id = hypothesis_id or hypothesis().hypothesis_id
+    return Adjudication(
+        adjudication_id=f"adj-{hypothesis_id}-{round_number}",
+        hypothesis_id=hypothesis_id,
+        round_number=round_number,
+        verdict=verdict,  # type: ignore[arg-type]
+        rationale=["The path is reachable."],
+        accepted_code_evidence_ids=[accepted_evidence],
+        accepted_graph_evidence_ids=[],
+        missing_proof=[],
+        duplicate_of=None,
+        confidence=0.9,
+    )
+
+
+def generated_test_draft(finding_id: str | None = None) -> GeneratedTestDraft:
+    finding_id = finding_id or f"finding-{hypothesis().hypothesis_id}"
+    return GeneratedTestDraft(
+        test_id="test-pi-1",
+        finding_id=finding_id,
+        language="python",
+        framework="pytest",
+        suggested_target_path="tests/test_prompt.py",
+        source="def test_prompt_injection(): assert False",
+        expected_failing_assertion="assert output != injected_instruction",
+        suggested_run_command="pytest tests/test_prompt.py",
+    )
+
+
+def default_ledger() -> FakeLedger:
+    ledger = FakeLedger()
+    ledger.record_issued_evidence(
+        *[f"code-profile-{index}" for index in range(50)],
+        "code-hypothesis", "code-filter", "code-bypass",
+        *[f"code-round-{index}" for index in range(1, 5)],
+    )
+    return ledger
+
+
+def orchestrator(
+    backend: ScriptedTeamBackend,
+    repo: Path,
+    ledger: FakeLedger | None = None,
+    *,
+    graph_enabled: bool = False,
+) -> AssessmentOrchestrator:
+    return AssessmentOrchestrator(
+        backend=backend,
+        evidence_store=RepositoryEvidenceStore.open(repo),
+        ledger=ledger or default_ledger(),
+        graph_enabled=graph_enabled,
+    )
+
+
+def test_debate_confirms_only_after_rebuttal_red_response_and_judgment(tmp_path: Path) -> None:
+    store = RepositoryEvidenceStore.open(tmp_path)
+    backend = ScriptedTeamBackend([
+        profile_result(store.snapshot_id),
+        HypothesisBatch(hypotheses=[hypothesis()]),
+        rebuttal(),
+        red_response(),
+        adjudication(),
+        HypothesisBatch(hypotheses=[]),
+        HypothesisBatch(hypotheses=[]),
+        generated_test_draft(),
+    ])
+
+    state = asyncio.run(orchestrator(backend, tmp_path).run(config(tmp_path)))
+
+    hypothesis_id = hypothesis().hypothesis_id
+    assert [finding.hypothesis_id for finding in state.findings] == [hypothesis_id]
+    assert state.hypotheses[hypothesis_id].status == "confirmed"
+    finding = state.findings[0]
+    assert finding.judge_rationale == ["The path is reachable."]
+    assert finding.strongest_rebuttal == ["A partial filter exists."]
+    assert finding.rebuttal_failure_reason == "The filter is bypassable."
+    assert finding.confidence_score == 0.9
+    assert finding.confidence == "high"
+    assert state.discovery.consecutive_empty_sweeps == 2
+    assert backend.role_order == [
+        "code_team", "red_team", "code_team", "red_team", "judge",
+        "red_team", "red_team", "red_team",
+    ]
+
+
+def test_confirmed_finding_publishes_test_draft_via_hook(tmp_path: Path) -> None:
+    from saads_grill_agent.test_artifacts import write_test_artifact
+
+    target = tmp_path / "target"
+    target.mkdir()
+    run_dir = tmp_path / "grill-run"
+    run_dir.mkdir()
+    (run_dir / "tests").mkdir()
+    store = RepositoryEvidenceStore.open(target)
+    hyp = hypothesis()
+    finding_id = f"finding-{hyp.hypothesis_id}"
+
+    def publish(draft: GeneratedTestDraft, finding: Finding, state: Any) -> None:
+        assert state.profile is not None
+        write_test_artifact(draft, finding, state.profile, run_dir, target)
+
+    backend = ScriptedTeamBackend([
+        profile_result(store.snapshot_id),
+        HypothesisBatch(hypotheses=[hyp]),
+        rebuttal(),
+        red_response(),
+        adjudication(),
+        HypothesisBatch(hypotheses=[]),
+        HypothesisBatch(hypotheses=[]),
+        generated_test_draft(finding_id),
+    ])
+    orch = AssessmentOrchestrator(
+        backend=backend,
+        evidence_store=store,
+        ledger=default_ledger(),
+        publish_test_draft=publish,
+    )
+
+    state = asyncio.run(orch.run(config(target)))
+
+    artifact = run_dir / "tests" / f"{finding_id}.py"
+    assert state.findings[0].generated_test_ids == ["test-pi-1"]
+    assert artifact.is_file()
+    assert "test_prompt_injection" in artifact.read_text(encoding="utf-8")
+
+
+def test_red_withdrawal_is_finalized_by_a_judge_turn(tmp_path: Path) -> None:
+    store = RepositoryEvidenceStore.open(tmp_path)
+    backend = ScriptedTeamBackend([
+        profile_result(store.snapshot_id), HypothesisBatch(hypotheses=[hypothesis()]),
+        rebuttal(), red_response(disposition="withdraw"), adjudication("reject"),
+        HypothesisBatch(hypotheses=[]), HypothesisBatch(hypotheses=[]),
+    ])
+
+    state = asyncio.run(orchestrator(backend, tmp_path).run(config(tmp_path)))
+
+    assert state.hypotheses[hypothesis().hypothesis_id].status == "rejected"
+    assert "judge" in backend.role_order
+
+
+def test_judge_rejection_creates_no_finding(tmp_path: Path) -> None:
+    store = RepositoryEvidenceStore.open(tmp_path)
+    backend = ScriptedTeamBackend([
+        profile_result(store.snapshot_id), HypothesisBatch(hypotheses=[hypothesis()]),
+        rebuttal(), red_response(), adjudication("reject"),
+        HypothesisBatch(hypotheses=[]), HypothesisBatch(hypotheses=[]),
+    ])
+
+    state = asyncio.run(orchestrator(backend, tmp_path).run(config(tmp_path)))
+
+    assert state.hypotheses[hypothesis().hypothesis_id].status == "rejected"
+    assert state.findings == []
+
+
+def test_discovery_max_turns_failure_counts_as_empty_sweep(tmp_path: Path) -> None:
+    store = RepositoryEvidenceStore.open(tmp_path)
+    ledger = default_ledger()
+
+    class FailingDiscoveryBackend(ScriptedTeamBackend):
+        async def run_turn(self, **kwargs: Any) -> TeamTurnResult:
+            if kwargs["role"] == "red_team":
+                assert kwargs.get("max_turns") is DISCOVERY_MAX_TURNS
+                raise TeamTurnError("team turn failed: error_max_turns")
+            return await super().run_turn(**kwargs)
+
+    backend = FailingDiscoveryBackend([profile_result(store.snapshot_id)])
+    orch = AssessmentOrchestrator(
+        backend=backend,
+        evidence_store=store,
+        ledger=ledger,
+    )
+    state = asyncio.run(orch.run(config(tmp_path)))
+
+    assert state.phase == "complete"
+    assert state.profile is not None
+    assert state.discovery.consecutive_empty_sweeps == 2
+    assert state.hypotheses == {}
+    assert state.findings == []
+    failed = [event for event in ledger.events if event["event"] == "discovery_turn_failed"]
+    assert len(failed) == 2
+    assert "error_max_turns" in failed[0]["reason"]
+
+
+def test_debate_max_turns_failure_interrupts_instead_of_crashing(tmp_path: Path) -> None:
+    store = RepositoryEvidenceStore.open(tmp_path)
+    ledger = default_ledger()
+
+    class FailOnDebateBackend(ScriptedTeamBackend):
+        async def run_turn(self, **kwargs: Any) -> TeamTurnResult:
+            prompt = kwargs.get("prompt", "")
+            if kwargs["role"] == "code_team" and "Falsify hypothesis" in prompt:
+                assert kwargs.get("max_turns") is DEBATE_MAX_TURNS
+                raise TeamTurnError("team turn failed: error_max_turns")
+            return await super().run_turn(**kwargs)
+
+    backend = FailOnDebateBackend(
+        [
+            profile_result(store.snapshot_id),
+            HypothesisBatch(hypotheses=[hypothesis()]),
+            # forced judge after debate failure
+            adjudication("reject"),
+            HypothesisBatch(hypotheses=[]),
+            HypothesisBatch(hypotheses=[]),
+        ]
+    )
+    orch = AssessmentOrchestrator(
+        backend=backend,
+        evidence_store=store,
+        ledger=ledger,
+    )
+    state = asyncio.run(orch.run(config(tmp_path)))
+
+    assert state.phase in {"complete", "interrupted"}
+    assert any(event["event"] == "debate_turn_failed" for event in ledger.events)
+    assert state.hypotheses  # checkpointed before debate
+
+
+def test_discovery_requests_elevated_max_turns(tmp_path: Path) -> None:
+    store = RepositoryEvidenceStore.open(tmp_path)
+    backend = ScriptedTeamBackend(
+        [
+            profile_result(store.snapshot_id),
+            HypothesisBatch(hypotheses=[]),
+            HypothesisBatch(hypotheses=[]),
+        ]
+    )
+    state = asyncio.run(orchestrator(backend, tmp_path).run(config(tmp_path)))
+    assert state.phase == "complete"
+    red_turns = [
+        turns for role, turns in backend.max_turns_by_role if role == "red_team"
+    ]
+    assert red_turns
+    assert all(turns is DISCOVERY_MAX_TURNS for turns in red_turns)
+
+
+def test_model_cited_evidence_must_have_been_issued(tmp_path: Path) -> None:
+    store = RepositoryEvidenceStore.open(tmp_path)
+    ledger = FakeLedger()
+    ledger.record_issued_evidence(*[f"code-profile-{i}" for i in range(5)])
+    # Unissued citation is rewritten to the profiled surface's issued evidence,
+    # then a normal debate proceeds to a reject verdict.
+    backend = ScriptedTeamBackend([
+        profile_result(store.snapshot_id),
+        HypothesisBatch(hypotheses=[hypothesis()]),  # cites code-hypothesis (unissued)
+        rebuttal(),
+        red_response(),
+        adjudication("reject"),
+        HypothesisBatch(hypotheses=[]),
+        HypothesisBatch(hypotheses=[]),
+    ])
+
+    state = asyncio.run(orchestrator(backend, tmp_path, ledger).run(config(tmp_path)))
+
+    hyp_id = next(iter(state.hypotheses))
+    assert state.hypotheses[hyp_id].hypothesis.code_evidence_ids == ["code-profile-0"]
+    assert state.hypotheses[hyp_id].status == "rejected"
+    assert state.findings == []
+    assert state.phase == "complete"
+
+
+def test_profile_path_citations_are_replaced_with_issued_evidence(tmp_path: Path) -> None:
+    from types import SimpleNamespace
+
+    store = RepositoryEvidenceStore.open(tmp_path)
+    ledger = FakeLedger()
+    code_audit: list[Any] = []
+    bad_profile = profile_result(store.snapshot_id, surfaces=1)
+    bad_profile = ProfileResult(
+        profile=bad_profile.profile.model_copy(
+            update={"profile_evidence_ids": ["README.md"], "snapshot_id": "wrong-snap"}
+        ),
+        threat_surfaces=[
+            bad_profile.threat_surfaces[0].model_copy(
+                update={"code_evidence_ids": ["app/main.py"]}
+            )
+        ],
+    )
+
+    class AuditInjectingBackend(ScriptedTeamBackend):
+        async def run_turn(self, **kwargs: Any) -> TeamTurnResult:
+            if kwargs["role"] == "code_team" and not code_audit:
+                code_audit.append(SimpleNamespace(evidence_id="code-live-1"))
+            return await super().run_turn(**kwargs)
+
+    backend = AuditInjectingBackend(
+        [
+            bad_profile,
+            HypothesisBatch(hypotheses=[]),
+            HypothesisBatch(hypotheses=[]),
+        ]
+    )
+    orch = AssessmentOrchestrator(
+        backend=backend,
+        evidence_store=store,
+        ledger=ledger,
+        code_audit=code_audit,
+    )
+
+    state = asyncio.run(orch.run(config(tmp_path)))
+
+    assert state.profile is not None
+    assert state.profile.snapshot_id == store.snapshot_id
+    assert state.profile.profile_evidence_ids == ["code-live-1"]
+    assert state.threat_surfaces[0].code_evidence_ids == ["code-live-1"]
+    assert state.phase == "complete"
+
+
+def test_mcp_audit_evidence_is_synced_before_validation(tmp_path: Path) -> None:
+    """Evidence IDs appended by MCP tools become issuable after each turn."""
+    from types import SimpleNamespace
+
+    store = RepositoryEvidenceStore.open(tmp_path)
+    ledger = FakeLedger()
+    code_audit: list[Any] = []
+
+    class AuditInjectingBackend(ScriptedTeamBackend):
+        async def run_turn(
+            self,
+            *,
+            role: str,
+            prompt: str,
+            output_model: type[Any],
+            session_id: str | None,
+            audits: TeamTurnAudits,
+            max_turns: int | None = None,
+            enable_subagents: bool = True,
+        ) -> TeamTurnResult:
+            if role == "code_team" and not code_audit:
+                code_audit.append(SimpleNamespace(evidence_id="code-profile-0"))
+            return await super().run_turn(
+                role=role,
+                prompt=prompt,
+                output_model=output_model,
+                session_id=session_id,
+                audits=audits,
+                max_turns=max_turns,
+                enable_subagents=enable_subagents,
+            )
+
+    backend = AuditInjectingBackend(
+        [
+            profile_result(store.snapshot_id, surfaces=1),
+            HypothesisBatch(hypotheses=[]),
+            HypothesisBatch(hypotheses=[]),
+        ]
+    )
+    orch = AssessmentOrchestrator(
+        backend=backend,
+        evidence_store=store,
+        ledger=ledger,
+        code_audit=code_audit,
+    )
+
+    state = asyncio.run(orch.run(config(tmp_path)))
+
+    assert "code-profile-0" in state.evidence_ids
+    assert "code-profile-0" in ledger.list_issued_evidence()
+    assert state.phase == "complete"
+
+
+def test_duplicate_hypothesis_is_not_debated_twice(tmp_path: Path) -> None:
+    store = RepositoryEvidenceStore.open(tmp_path)
+    first = hypothesis("model-wording-one")
+    duplicate = hypothesis("model-wording-two")
+    backend = ScriptedTeamBackend([
+        profile_result(store.snapshot_id), HypothesisBatch(hypotheses=[first, duplicate]),
+        rebuttal(first.hypothesis_id), red_response(first.hypothesis_id),
+        adjudication(hypothesis_id=first.hypothesis_id),
+        HypothesisBatch(hypotheses=[]), HypothesisBatch(hypotheses=[]),
+        generated_test_draft(f"finding-{first.hypothesis_id}"),
+    ])
+
+    state = asyncio.run(orchestrator(backend, tmp_path).run(config(tmp_path)))
+
+    assert len(state.hypotheses) == 1
+    assert backend.role_order.count("code_team") == 2
+
+
+def test_orchestrator_replaces_model_hypothesis_id_with_canonical_id(tmp_path: Path) -> None:
+    store = RepositoryEvidenceStore.open(tmp_path)
+    expected = hypothesis().hypothesis_id
+    model_hypothesis = hypothesis().model_copy(update={"hypothesis_id": "model-selected-id"})
+    backend = ScriptedTeamBackend([
+        profile_result(store.snapshot_id), HypothesisBatch(hypotheses=[model_hypothesis]),
+        rebuttal(expected), red_response(expected), adjudication(hypothesis_id=expected),
+        HypothesisBatch(hypotheses=[]), HypothesisBatch(hypotheses=[]),
+        generated_test_draft(f"finding-{expected}"),
+    ])
+
+    state = asyncio.run(orchestrator(backend, tmp_path).run(config(tmp_path)))
+
+    assert list(state.hypotheses) == [expected]
+    assert "model-selected-id" not in state.hypotheses
+
+
+def test_refined_hypothesis_replaces_its_model_selected_id(tmp_path: Path) -> None:
+    store = RepositoryEvidenceStore.open(tmp_path)
+    initial = hypothesis()
+    revised = hypothesis(root_cause="Refined root cause").model_copy(
+        update={"hypothesis_id": "nonsense-model-id"}
+    )
+    backend = ScriptedTeamBackend([
+        profile_result(store.snapshot_id), HypothesisBatch(hypotheses=[initial]),
+        rebuttal(initial.hypothesis_id),
+        RedResponseBatch(responses=[RedResponse(
+            hypothesis_id=initial.hypothesis_id,
+            round_number=1,
+            disposition="refine",
+            reasoning=["The root cause is more specific."],
+            revised_hypothesis=revised,
+            new_code_evidence_ids=["code-bypass"],
+            new_graph_evidence_ids=[],
+        )]),
+        adjudication("reject", hypothesis_id=initial.hypothesis_id),
+        HypothesisBatch(hypotheses=[]), HypothesisBatch(hypotheses=[]),
+    ])
+
+    state = asyncio.run(orchestrator(backend, tmp_path).run(config(tmp_path)))
+
+    assert state.hypotheses[initial.hypothesis_id].hypothesis.hypothesis_id == derive_hypothesis_id(revised)
+    assert state.hypotheses[initial.hypothesis_id].hypothesis.hypothesis_id != "nonsense-model-id"
+
+
+def test_fourth_round_forces_a_terminal_judgment(tmp_path: Path) -> None:
+    store = RepositoryEvidenceStore.open(tmp_path)
+    outputs: list[Any] = [profile_result(store.snapshot_id), HypothesisBatch(hypotheses=[hypothesis()])]
+    for round_number in range(1, 5):
+        evidence_id = f"code-round-{round_number}"
+        outputs.extend([
+            RebuttalBatch(rebuttals=[rebuttal().rebuttals[0].model_copy(update={
+                "round_number": round_number, "new_code_evidence_ids": [evidence_id],
+            })]),
+            RedResponseBatch(responses=[red_response().responses[0].model_copy(update={"round_number": round_number})]),
+            adjudication(
+                "request_more_evidence" if round_number < 4 else "reject",
+                round_number=round_number,
+            ),
+        ])
+    outputs.extend([HypothesisBatch(hypotheses=[]), HypothesisBatch(hypotheses=[])])
+    backend = ScriptedTeamBackend(outputs)
+
+    state = asyncio.run(orchestrator(backend, tmp_path).run(config(tmp_path)))
+
+    assert state.hypotheses[hypothesis().hypothesis_id].status == "rejected"
+    assert backend.role_order.count("judge") == 4
+
+
+def test_two_rounds_without_new_evidence_force_final_judgment(tmp_path: Path) -> None:
+    store = RepositoryEvidenceStore.open(tmp_path)
+    first = adjudication("request_more_evidence", accepted_evidence="code-hypothesis")
+    second = adjudication("reject", round_number=2, accepted_evidence="code-hypothesis")
+    backend = ScriptedTeamBackend([
+        profile_result(store.snapshot_id), HypothesisBatch(hypotheses=[hypothesis()]),
+        rebuttal(evidence=[]), red_response(evidence=[]), first,
+        RebuttalBatch(rebuttals=[rebuttal().rebuttals[0].model_copy(update={"round_number": 2, "new_code_evidence_ids": []})]),
+        RedResponseBatch(responses=[red_response().responses[0].model_copy(update={"round_number": 2, "new_code_evidence_ids": []})]),
+        second, HypothesisBatch(hypotheses=[]), HypothesisBatch(hypotheses=[]),
+    ])
+
+    state = asyncio.run(orchestrator(backend, tmp_path).run(config(tmp_path)))
+
+    assert state.hypotheses[hypothesis().hypothesis_id].status == "rejected"
+    assert backend.role_order.count("judge") == 2
+
+
+@pytest.mark.parametrize(
+    ("limit_name", "limit", "profile_surfaces", "hypotheses", "costs"),
+    [
+        ("max_threat_surfaces", 20, 21, [], None),
+        ("max_hypotheses", 40, 1, [
+            hypothesis(f"hyp-{index}", root_cause=f"Root cause {index}") for index in range(41)
+        ], None),
+        ("max_agent_calls", 5, 1, [], None),
+        ("max_cost_usd", 25.0, 1, [], [30.0]),
+    ],
+)
+def test_resource_caps_checkpoint_and_interrupt(
+    tmp_path: Path,
+    limit_name: str,
+    limit: int | float,
+    profile_surfaces: int,
+    hypotheses: list[VulnerabilityHypothesis],
+    costs: list[float | None] | None,
+) -> None:
+    store = RepositoryEvidenceStore.open(tmp_path)
+    ledger = default_ledger()
+    outputs: list[Any] = [
+        profile_result(store.snapshot_id, profile_surfaces),
+        HypothesisBatch(hypotheses=hypotheses),
+    ]
+    if limit_name == "max_agent_calls":
+        outputs = [
+            profile_result(store.snapshot_id),
+            HypothesisBatch(hypotheses=[hypothesis()]),
+            rebuttal(),
+            red_response(),
+            adjudication("request_more_evidence"),
+            # Wind-down judge after the hard scheduling cap is hit.
+            adjudication("reject"),
+        ]
+    if limit_name == "max_hypotheses":
+        outputs.extend([
+            adjudication(
+                "reject",
+                hypothesis_id=hypotheses[index].hypothesis_id,
+                accepted_evidence="code-hypothesis",
+            )
+            for index in range(40)
+        ])
+    backend = ScriptedTeamBackend(
+        outputs,
+        costs=costs,
+    )
+
+    state = asyncio.run(orchestrator(backend, tmp_path, ledger).run(config(tmp_path, **{limit_name: limit})))
+
+    assert state.phase == "interrupted"
+    assert ledger.checkpoints
+    assert any(event["event"] == "resource_cap_reached" for event in ledger.events)
+    if limit_name == "max_agent_calls":
+        assert backend.role_order == [
+            "code_team",
+            "red_team",
+            "code_team",
+            "red_team",
+            "judge",
+            "judge",
+        ]
+        assert state.hypotheses[hypothesis().hypothesis_id].status == "rejected"
+    if limit_name == "max_hypotheses":
+        assert backend.role_order.count("judge") == 40
+        assert all(record.status == "rejected" for record in state.hypotheses.values())
+
+
+def test_missing_cost_metadata_interrupts_and_checkpoints(tmp_path: Path) -> None:
+    store = RepositoryEvidenceStore.open(tmp_path)
+    ledger = default_ledger()
+    backend = ScriptedTeamBackend([profile_result(store.snapshot_id)], costs=[None])
+
+    state = asyncio.run(orchestrator(backend, tmp_path, ledger).run(config(tmp_path)))
+
+    assert state.phase == "interrupted"
+    assert any(event["event"] == "missing_cost_metadata" for event in ledger.events)
+
+
+def test_resume_continues_an_interrupted_run(tmp_path: Path) -> None:
+    store = RepositoryEvidenceStore.open(tmp_path)
+    backend = ScriptedTeamBackend([
+        profile_result(store.snapshot_id), profile_result(store.snapshot_id),
+        HypothesisBatch(hypotheses=[]), HypothesisBatch(hypotheses=[]),
+    ])
+    subject = orchestrator(backend, tmp_path)
+    state = asyncio.run(subject.run(config(tmp_path, max_cost_usd=0.01)))
+    assert state.phase == "interrupted"
+    state.cost_usd_used = 0.0
+    state.agent_calls_used = 0
+    state.config.max_cost_usd = 25.0
+
+    resumed = asyncio.run(orchestrator(backend, tmp_path).resume(state))
+
+    assert resumed.phase == "complete"
+    assert backend.session_ids[1] == "code_team-1"
+
+
+def test_resume_rejects_repository_snapshot_mismatch(tmp_path: Path) -> None:
+    store = RepositoryEvidenceStore.open(tmp_path)
+    backend = ScriptedTeamBackend([profile_result(store.snapshot_id)])
+    state = asyncio.run(orchestrator(backend, tmp_path).run(config(tmp_path, max_cost_usd=0.01)))
+    (tmp_path / "changed.py").write_text("x = 1\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="snapshot"):
+        asyncio.run(orchestrator(ScriptedTeamBackend([]), tmp_path).resume(state))
+
+
+@pytest.mark.parametrize("phase", ["debating", "adjudicating", "interrupted"])
+def test_resume_finishes_pending_debate_before_discovery(tmp_path: Path, phase: str) -> None:
+    from saads_grill_agent.contracts import AssessmentState, HypothesisRecord
+
+    store = RepositoryEvidenceStore.open(tmp_path)
+    ledger = default_ledger()
+    hyp = hypothesis()
+    profiled = profile_result(store.snapshot_id)
+    state = AssessmentState(
+        config=config(tmp_path), snapshot_id=store.snapshot_id, phase=phase,
+        profile=profiled.profile, threat_surfaces=profiled.threat_surfaces,
+        hypotheses={hyp.hypothesis_id: HypothesisRecord(hypothesis=hyp, status="debating", final_adjudication_id=None)},
+    )
+    state.register_evidence(*ledger.list_issued_evidence())
+    backend = ScriptedTeamBackend([
+        rebuttal(), red_response(), adjudication("reject"),
+        HypothesisBatch(hypotheses=[]), HypothesisBatch(hypotheses=[]),
+    ])
+    resumed = asyncio.run(orchestrator(backend, tmp_path, ledger).resume(state))
+    assert resumed.phase == "complete"
+    assert resumed.hypotheses[hyp.hypothesis_id].status == "rejected"
+    assert backend.role_order[:3] == ["code_team", "red_team", "judge"]
+    assert {item.phase for item in ledger.checkpoints} >= {"debating", "adjudicating", "discovery", "complete"}
+
+
+def _minimal_run_outputs(snapshot_id: str) -> list[Any]:
+    hyp = hypothesis()
+    finding_id = f"finding-{hyp.hypothesis_id}"
+    return [
+        profile_result(snapshot_id),
+        HypothesisBatch(hypotheses=[hyp]),
+        rebuttal(hyp.hypothesis_id),
+        red_response(hyp.hypothesis_id),
+        adjudication(hypothesis_id=hyp.hypothesis_id),
+        HypothesisBatch(hypotheses=[]),
+        HypothesisBatch(hypotheses=[]),
+        generated_test_draft(finding_id),
+    ]
+
+
+def test_prompts_mention_skill_when_graph_enabled(tmp_path: Path) -> None:
+    store = RepositoryEvidenceStore.open(tmp_path)
+    backend = ScriptedTeamBackend(_minimal_run_outputs(store.snapshot_id))
+
+    asyncio.run(orchestrator(backend, tmp_path, graph_enabled=True).run(config(tmp_path)))
+
+    discovery = next(prompt for role, prompt in backend.prompts if role == "red_team" and "Propose at most 3" in prompt)
+    debate = next(prompt for role, prompt in backend.prompts if role == "red_team" and "Respond to the rebuttal" in prompt)
+    judge = next(prompt for role, prompt in backend.prompts if role == "judge")
+
+    for prompt in (discovery, debate, judge):
+        assert "$ground-red-team-evidence" in prompt
+        assert "Grilling:" in prompt
+
+
+def test_prompts_omit_graphrag_when_graph_disabled(tmp_path: Path) -> None:
+    store = RepositoryEvidenceStore.open(tmp_path)
+    backend = ScriptedTeamBackend(_minimal_run_outputs(store.snapshot_id))
+
+    asyncio.run(orchestrator(backend, tmp_path, graph_enabled=False).run(config(tmp_path)))
+
+    for _role, prompt in backend.prompts:
+        assert "$ground-red-team-evidence" not in prompt
+        assert "GraphRAG" not in prompt
+
+    discovery = next(prompt for role, prompt in backend.prompts if role == "red_team" and "Propose at most 3" in prompt)
+    debate = next(prompt for role, prompt in backend.prompts if role == "red_team" and "Respond to the rebuttal" in prompt)
+    judge = next(prompt for role, prompt in backend.prompts if role == "judge")
+    rebuttal_prompt = next(prompt for role, prompt in backend.prompts if role == "code_team" and "Falsify hypothesis" in prompt)
+
+    for prompt in (discovery, debate, judge, rebuttal_prompt):
+        assert "Grilling:" in prompt
