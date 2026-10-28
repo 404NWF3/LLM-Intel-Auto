@@ -1,34 +1,22 @@
 "use client"
 
 import useSWR from "swr"
-import { USE_MOCK_API, fetchValidated } from "@/lib/api/client"
-import { MOCK_STATS } from "@/lib/api/mock"
-import {
-  StatsResponseSchema,
-  type StatsResponse,
-} from "@/lib/types/stats"
+import { intelFetch } from "@/lib/api/intel"
+import { StatsResponseSchema, type StatsResponse } from "@/lib/types/stats"
 
-export function useStats(): {
-  stats: StatsResponse | undefined
-  isLoading: boolean
-  error: Error | undefined
-} {
-  const { data, isLoading, error } = useSWR<StatsResponse, Error>(
+export function useStats() {
+  const { data, isLoading, isValidating, error, mutate } = useSWR<StatsResponse, Error>(
     "/api/stats",
-    async (url: string) => {
-      if (USE_MOCK_API) {
-        await new Promise((resolve) => setTimeout(resolve, 60))
-        return MOCK_STATS
-      }
-
-      return fetchValidated(url, StatsResponseSchema)
-    },
-    { refreshInterval: 30000, revalidateOnFocus: false }
+    async (url: string) =>
+      StatsResponseSchema.parse(await intelFetch(url, { cache: "no-store" })),
+    { refreshInterval: 30000, revalidateOnFocus: true }
   )
 
   return {
     stats: data,
     isLoading,
-    error: error as Error | undefined,
+    isValidating,
+    error,
+    refresh: () => mutate(),
   }
 }

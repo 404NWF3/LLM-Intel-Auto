@@ -158,3 +158,43 @@ def test_export_storage_failure_is_not_downloaded(tmp_path, monkeypatch):
         assert response.status_code == 503
         assert response.json()["detail"]
         assert "content-disposition" not in response.headers
+
+
+@pytest.mark.parametrize("backend", ["json", "mongo"])
+def test_home_stats_use_full_deduplicated_corpus(tmp_path, backend):
+    from common.topics import CORE_SECURITY_TOPICS
+    from pentest_agent.service import PentestService
+    store = (JsonIntelRunStore(tmp_path / "runs") if backend == "json" else
+             MongoIntelRunStore(database=mongomock.MongoClient().db))
+    pentest = PentestService(store, data_dir=tmp_path / "pentest")
+    with TestClient(create_app(CollectionService(store, data_dir=tmp_path), pentest_service=pentest)) as client:
+        empty = client.get("/api/stats")
+        assert empty.status_code == 200
+        assert empty.headers["cache-control"] == "no-store"
+        assert empty.json()["item_count"] == empty.json()["core_coverage_pct"] == 0
+        assert empty.json()["script_count"] == 0
+        older = make_item("older", source_name="arxiv_api")
+        older.metadata["topics"] = ["jailbreak", "system prompt leakage"]
+        store.save_run(IntelRunBlackboard(run_id="first", run_goal="test", raw_items=[
+            older, *[make_item(str(i)) for i in range(205)],
+        ]))
+        store.save_run(IntelRunBlackboard(run_id="second", run_goal="test", raw_items=[make_item("0")]))
+        stats = client.get("/api/stats").json()
+        assert stats["item_count"] == 206
+        assert stats["source_count"] == 2
+        assert stats["core_topics_covered"] == 2
+        assert stats["core_topics_total"] == len(CORE_SECURITY_TOPICS)
+        assert stats["core_coverage_pct"] == round(200 / len(CORE_SECURITY_TOPICS), 1)
+        assert stats["updated_at"]
+
+
+def test_home_stats_storage_failure_is_not_zero(tmp_path, monkeypatch):
+    store = JsonIntelRunStore(tmp_path / "runs")
+    def fail(**kwargs):
+        raise OSError("test storage failure")
+    monkeypatch.setattr(store, "query_items", fail)
+    with TestClient(create_app(CollectionService(store, data_dir=tmp_path)),
+                    raise_server_exceptions=False) as client:
+        response = client.get("/api/stats")
+        assert response.status_code == 503
+        assert "item_count" not in response.json()
