@@ -1,7 +1,7 @@
 """Shared LLM-security topic taxonomy (Core + Extended).
 
 Only topic constants and pure helpers live here. No dependency on intel_agent
-or ctinexus_kg — both packages import from this module.
+and the collection console.
 """
 
 from __future__ import annotations

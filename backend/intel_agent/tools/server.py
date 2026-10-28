@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .constants import SERVER_NAME
+from .constants import SERVER_NAME, SOURCE_TOOL_NAMES
 from .context import ToolContext
 from .control_tools import build_control_tools
 from .adaptive_tools import build_adaptive_tools
@@ -15,7 +15,7 @@ from .source_tools import build_source_tools
 ALLOWED_TOOLS = [
     f"mcp__{SERVER_NAME}__{name}"
     for name in (
-        "search_nvd", "search_arxiv", "search_cisa_kev", "search_osv",
+        *SOURCE_TOOL_NAMES,
         "recall_playbook", "record_technique", "submit_round_summary",
         "get_collection_state", "score_query_candidates",
     )
@@ -34,7 +34,11 @@ def build_round_server(ctx: ToolContext) -> tuple[dict[str, Any], list[str]]:
     if ctx.adaptive:
         tools += build_adaptive_tools(ctx)
     server = create_sdk_mcp_server(name=SERVER_NAME, tools=tools)
-    allowed = list(ALLOWED_TOOLS)
+    allowed = [
+        name for name in ALLOWED_TOOLS
+        if name.rsplit("__", 1)[-1] not in SOURCE_TOOL_NAMES
+        or SOURCE_TOOL_NAMES[name.rsplit("__", 1)[-1]] in ctx.enabled_sources
+    ]
     if not ctx.adaptive:
         allowed = [
             name

@@ -18,12 +18,14 @@ read from the environment / ``.env`` via the runtime client's resolver.
 
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
 from typing import Any
 
 from pydantic import ValidationError
 
 from .persistence import format_intel_items
+from .content import merge_item_documents
 from .runtime.client import _setting
 from .schemas import IntelRunBlackboard, RawIntelItem, RawIntelItemBatch, SourceCheckpoint
 from .topics import EXTENDED_SECURITY_TOPICS
@@ -34,7 +36,7 @@ DEFAULT_MONGO_URI = "mongodb://localhost:27018"
 DEFAULT_MONGO_DB = "intel_agent"
 DEFAULT_RUNS_COLLECTION = "runs"
 DEFAULT_ITEMS_COLLECTION = "items"
-DEFAULT_KGS_COLLECTION = "knowledge_graphs"
+MAX_INLINE_RUN_BYTES = 12 * 1024 * 1024
 
 
 # ------------------------------------------------------------------ config
@@ -96,7 +98,7 @@ def build_run_document(
     # raw_text is preserved in the items collection; drop it here to bound doc size.
     for raw in board.get("raw_items", []):
         raw["raw_text"] = None
-    return {
+    document = {
         "schema_version": 3,
         "_id": blackboard.run_id,
         "run_id": blackboard.run_id,
@@ -108,24 +110,36 @@ def build_run_document(
         "item_count": len(blackboard.raw_items),
         "blackboard": board,
     }
+    # Large historical imports can exceed MongoDB's per-document limit even
+    # without raw_text. Keep full items in their collection, and hydrate on read.
+    if len(json.dumps(document, ensure_ascii=False).encode("utf-8")) > MAX_INLINE_RUN_BYTES:
+        document["blackboard"]["raw_items"] = []
+        document["items_external"] = True
+    return document
 
 
 def build_item_update(item: RawIntelItem, run_id: str, saved_at: str) -> tuple[dict, dict]:
     """Return ``(filter, update)`` for an idempotent upsert keyed on item_id."""
     doc = item.model_dump(mode="json")
     item_id = doc.pop("item_id")
+    doc.pop("_id", None)
+    first_seen = doc.pop("first_seen_at", None) or saved_at
+    first_run = doc.pop("first_run_id", None) or run_id
+    prior_runs = doc.pop("run_ids", [])
+    last_seen = doc.pop("last_seen_at", None) or saved_at
+    last_run = doc.pop("last_run_id", None) or run_id
     topics = list((item.metadata or {}).get("topics", []))
     filter_ = {"_id": item_id}
     update = {
-        "$setOnInsert": {"first_seen_at": saved_at, "first_run_id": run_id},
+        "$setOnInsert": {"first_seen_at": first_seen, "first_run_id": first_run},
         "$set": {
             **doc,
             "item_id": item_id,
             "topics": topics,
-            "last_seen_at": saved_at,
-            "last_run_id": run_id,
+            "last_seen_at": last_seen,
+            "last_run_id": last_run,
         },
-        "$addToSet": {"run_ids": run_id},
+        "$addToSet": {"run_ids": {"$each": list(dict.fromkeys([*prior_runs, run_id]))} if prior_runs else run_id},
     }
     return filter_, update
 
@@ -144,14 +158,12 @@ class MongoIntelRunStore:
         database: Any | None = None,
         runs_collection: str = DEFAULT_RUNS_COLLECTION,
         items_collection: str = DEFAULT_ITEMS_COLLECTION,
-        kgs_collection: str = DEFAULT_KGS_COLLECTION,
     ) -> None:
         self._uri = uri
         self._db_name = db_name
         self._database = database
         self._runs_name = runs_collection
         self._items_name = items_collection
-        self._kgs_name = kgs_collection
         self._indexes_ready = False
 
     # ------------------------------------------------------------ plumbing
@@ -171,10 +183,6 @@ class MongoIntelRunStore:
     def _items(self) -> Any:
         return self._db()[self._items_name]
 
-    @property
-    def _kgs(self) -> Any:
-        return self._db()[self._kgs_name]
-
     def _ensure_indexes(self) -> None:
         if self._indexes_ready:
             return
@@ -182,9 +190,6 @@ class MongoIntelRunStore:
         self._items.create_index("last_seen_at")
         self._items.create_index("topics")
         self._items.create_index("source_name")
-        self._kgs.create_index("saved_at")
-        self._kgs.create_index("status")
-        self._kgs.create_index("run_id")
         self._indexes_ready = True
 
     # --------------------------------------------------------------- write
@@ -199,6 +204,17 @@ class MongoIntelRunStore:
         saved_at = _utcnow_iso()
 
         if blackboard.raw_items:
+            existing = {doc["item_id"]: doc for doc in self._items.find(
+                {"_id": {"$in": [item.item_id for item in blackboard.raw_items]}}
+            )}
+            items = []
+            for item in blackboard.raw_items:
+                incoming = item.model_dump(mode="json")
+                if not incoming.get("last_seen_at"):
+                    incoming.update(last_seen_at=saved_at, last_run_id=blackboard.run_id)
+                items.append(RawIntelItem.model_validate(merge_item_documents(
+                    incoming, existing.get(item.item_id, {})
+                )))
             # Prefer bulk_write; fall back to per-doc update_one for mongomock
             # (older mongomock rejects pymongo UpdateOne's ``sort`` kwarg).
             try:
@@ -206,11 +222,11 @@ class MongoIntelRunStore:
 
                 ops = [
                     UpdateOne(*build_item_update(item, blackboard.run_id, saved_at), upsert=True)
-                    for item in blackboard.raw_items
+                    for item in items
                 ]
                 self._items.bulk_write(ops, ordered=False)
             except TypeError:
-                for item in blackboard.raw_items:
+                for item in items:
                     filt, update = build_item_update(item, blackboard.run_id, saved_at)
                     self._items.update_one(filt, update, upsert=True)
 
@@ -221,15 +237,36 @@ class MongoIntelRunStore:
     # ---------------------------------------------------------------- read
 
     def load_latest_payload(self) -> dict[str, Any] | None:
-        return self._runs.find_one({}, sort=[("saved_at", -1)])
+        return self._hydrate(self._runs.find_one({}, sort=[("saved_at", -1)]))
 
     def load_run_payload(self, run_id: str) -> dict[str, Any] | None:
-        return self._runs.find_one({"_id": run_id})
+        return self._hydrate(self._runs.find_one({"_id": run_id}))
+
+    def _hydrate(self, payload: dict[str, Any] | None) -> dict[str, Any] | None:
+        if payload:
+            if payload.get("items_external"):
+                docs = {doc["_id"]: doc for doc in self._items.find(
+                    {"_id": {"$in": payload.get("item_ids", [])}}
+                )}
+                payload["blackboard"]["raw_items"] = [
+                    {key: value for key, value in docs[item_id].items() if key != "_id"}
+                    for item_id in payload.get("item_ids", []) if item_id in docs
+                ]
+                return payload
+            rows = (payload.get("blackboard") or {}).get("raw_items") or []
+            texts = {doc["_id"]: doc.get("raw_text") for doc in self._items.find(
+                {"_id": {"$in": [row["item_id"] for row in rows]}}, {"raw_text": 1}
+            )}
+            for row in rows:
+                row["raw_text"] = texts.get(row["item_id"], row.get("raw_text"))
+        return payload
 
     def load_all_blackboards(self, limit: int = 200) -> list[IntelRunBlackboard]:
         boards: list[IntelRunBlackboard] = []
         for doc in self._runs.find({}).sort("saved_at", -1).limit(limit):
             try:
+                if doc.get("items_external"):
+                    doc = self._hydrate(doc)
                 boards.append(IntelRunBlackboard.model_validate(doc["blackboard"]))
             except (KeyError, ValidationError, TypeError):
                 continue
@@ -324,9 +361,9 @@ class MongoIntelRunStore:
         topic: str | None = None,
         text: str | None = None,
         run_id: str | None = None,
-        limit: int = 200,
+        limit: int | None = 200,
     ) -> list[dict[str, Any]]:
-        """Query the global deduplicated ``items`` collection."""
+        """Query the deduplicated items collection; None returns all matches."""
         self._ensure_indexes()
         filt: dict[str, Any] = {}
         if source_name and source_name.strip():
@@ -343,11 +380,9 @@ class MongoIntelRunStore:
                 {"item_id": {"$regex": needle, "$options": "i"}},
                 {"_id": {"$regex": needle, "$options": "i"}},
             ]
-        cursor = (
-            self._items.find(filt)
-            .sort("last_seen_at", -1)
-            .limit(max(1, int(limit)))
-        )
+        cursor = self._items.find(filt).sort("last_seen_at", -1)
+        if limit is not None:
+            cursor = cursor.limit(max(1, int(limit)))
         return [dict(doc) for doc in cursor]
 
     def distinct_sources(self) -> list[str]:
@@ -357,85 +392,15 @@ class MongoIntelRunStore:
     def run_count(self) -> int:
         return self._runs.count_documents({})
 
-    def save_knowledge_graph(
-        self,
-        record: dict[str, Any],
-        graph: dict[str, Any] | None = None,
-    ) -> str:
-        """Upsert an item-level KG: metadata + optional full CTINexus JSON graph."""
-        self._ensure_indexes()
-        item_id = str(record.get("item_id") or "").strip()
-        if not item_id:
-            raise ValueError("record.item_id is required")
-        saved_at = _utcnow_iso()
-        run_id = record.get("run_id")
-        doc = {
-            "_id": item_id,
-            "item_id": item_id,
-            "run_id": run_id,
-            "status": record.get("status"),
-            "source_name": record.get("source_name"),
-            "source_uri": record.get("source_uri"),
-            "triplet_count": record.get("triplet_count", 0),
-            "entity_count": record.get("entity_count", 0),
-            "predicted_link_count": record.get("predicted_link_count", 0),
-            "ctinexus_json_path": record.get("ctinexus_json_path"),
-            "graph_html_path": record.get("graph_html_path"),
-            "model": record.get("model"),
-            "embedding_model": record.get("embedding_model"),
-            "error": record.get("error"),
-            "record": record,
-            "saved_at": saved_at,
-        }
-        if graph is not None:
-            doc["graph"] = graph
-        self._kgs.replace_one({"_id": item_id}, doc, upsert=True)
-        self._items.update_one(
-            {"_id": item_id},
-            {
-                "$set": {
-                    "kg_status": record.get("status"),
-                    "kg_run_id": run_id,
-                    "kg_saved_at": saved_at,
-                    "kg_triplet_count": record.get("triplet_count", 0),
-                    "kg_entity_count": record.get("entity_count", 0),
-                }
-            },
-        )
-        return item_id
-
-    def list_knowledge_graphs(
-        self,
-        *,
-        status: str | None = None,
-        run_id: str | None = None,
-        item_id: str | None = None,
-        limit: int = 100,
-    ) -> list[dict[str, Any]]:
-        """List KG generation records (excludes bulky graph payload by default)."""
-        self._ensure_indexes()
-        filt: dict[str, Any] = {}
-        if status and status.strip():
-            filt["status"] = status.strip()
-        if run_id and run_id.strip():
-            filt["run_id"] = run_id.strip()
-        if item_id and item_id.strip():
-            filt["item_id"] = item_id.strip()
-        cursor = (
-            self._kgs.find(filt, {"graph": 0})
-            .sort("saved_at", -1)
-            .limit(max(1, int(limit)))
-        )
-        return [dict(doc) for doc in cursor]
-
-    def load_knowledge_graph(self, item_id: str) -> dict[str, Any] | None:
-        self._ensure_indexes()
-        return self._kgs.find_one({"_id": item_id})
-
-    def knowledge_graph_count(self) -> int:
-        return self._kgs.count_documents({})
-
     def get_item(self, item_id: str) -> dict[str, Any] | None:
         self._ensure_indexes()
         return self._items.find_one({"_id": item_id})
+
+    def update_item_texts(self, updates: dict[str, dict[str, Any]]) -> int:
+        count = 0
+        for item_id, patch in updates.items():
+            fields = {key: value for key, value in patch.items() if key != "metadata"}
+            fields.update({f"metadata.{key}": value for key, value in patch.get("metadata", {}).items()})
+            count += self._items.update_one({"_id": item_id}, {"$set": fields}).matched_count
+        return count
 

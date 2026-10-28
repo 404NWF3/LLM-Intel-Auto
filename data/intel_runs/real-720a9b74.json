@@ -359,6 +359,11 @@
               "nvd_keyword_search": "prompt injection",
               "nvd_keyword_exact_match": true,
               "nvd_no_rejected": true
+            },
+            "raw_text_check": {
+              "item_id": "nvd:cve-2024-48919",
+              "status": "recovered_from_history",
+              "checked_at": "2026-10-14T13:14:00.080186+00:00"
             }
           }
         },
@@ -16132,6 +16137,11 @@
             "nvd_keyword_search": "prompt injection",
             "nvd_keyword_exact_match": true,
             "nvd_no_rejected": true
+          },
+          "raw_text_check": {
+            "item_id": "nvd:cve-2024-48919",
+            "status": "recovered_from_history",
+            "checked_at": "2026-10-14T13:14:00.080186+00:00"
           }
         }
       },

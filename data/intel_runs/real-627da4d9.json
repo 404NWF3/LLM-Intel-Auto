@@ -359,6 +359,11 @@
               "nvd_keyword_search": "prompt injection",
               "nvd_keyword_exact_match": true,
               "nvd_no_rejected": true
+            },
+            "raw_text_check": {
+              "item_id": "nvd:cve-2024-48919",
+              "status": "recovered_from_history",
+              "checked_at": "2026-10-14T13:14:00.080186+00:00"
             }
           }
         },
@@ -825,6 +830,11 @@
             "source_query_params": {
               "osv_ecosystem": "PyPI",
               "osv_package_name": "mlflow"
+            },
+            "raw_text_check": {
+              "item_id": "osv:ghsa-46r5-x6jq-v8g6",
+              "status": "recovered_from_history",
+              "checked_at": "2026-10-14T13:14:00.080186+00:00"
             }
           }
         },
@@ -1196,6 +1206,11 @@
             "source_query_params": {
               "osv_ecosystem": "PyPI",
               "osv_package_name": "gradio"
+            },
+            "raw_text_check": {
+              "item_id": "osv:ghsa-39mp-8hj3-5c49",
+              "status": "recovered_from_history",
+              "checked_at": "2026-10-14T13:14:00.080186+00:00"
             }
           }
         },
@@ -1224,6 +1239,11 @@
             "source_query_params": {
               "osv_ecosystem": "PyPI",
               "osv_package_name": "gradio"
+            },
+            "raw_text_check": {
+              "item_id": "osv:ghsa-26jh-r8g2-6fpr",
+              "status": "recovered_from_history",
+              "checked_at": "2026-10-14T13:14:00.080186+00:00"
             }
           }
         },
@@ -1255,6 +1275,11 @@
             "source_query_params": {
               "osv_ecosystem": "PyPI",
               "osv_package_name": "gradio"
+            },
+            "raw_text_check": {
+              "item_id": "osv:ghsa-279j-x4gx-hfrh",
+              "status": "recovered_from_history",
+              "checked_at": "2026-10-14T13:14:00.080186+00:00"
             }
           }
         },
@@ -1286,6 +1311,11 @@
             "source_query_params": {
               "osv_ecosystem": "PyPI",
               "osv_package_name": "gradio"
+            },
+            "raw_text_check": {
+              "item_id": "osv:ghsa-37qc-qgx6-9xjv",
+              "status": "recovered_from_history",
+              "checked_at": "2026-10-14T13:14:00.080186+00:00"
             }
           }
         },
@@ -1317,6 +1347,11 @@
             "source_query_params": {
               "osv_ecosystem": "PyPI",
               "osv_package_name": "gradio"
+            },
+            "raw_text_check": {
+              "item_id": "osv:ghsa-3c67-5hwx-f6wx",
+              "status": "recovered_from_history",
+              "checked_at": "2026-10-14T13:14:00.080186+00:00"
             }
           }
         },
@@ -3980,6 +4015,11 @@
             "source_query_params": {
               "osv_ecosystem": "PyPI",
               "osv_package_name": "jupyter-server"
+            },
+            "raw_text_check": {
+              "item_id": "osv:ghsa-5mrq-x3x5-8v8f",
+              "status": "recovered_from_history",
+              "checked_at": "2026-10-14T13:14:00.080186+00:00"
             }
           }
         },
@@ -4010,6 +4050,11 @@
             "source_query_params": {
               "osv_ecosystem": "PyPI",
               "osv_package_name": "jupyter-server"
+            },
+            "raw_text_check": {
+              "item_id": "osv:ghsa-24qx-w28j-9m6p",
+              "status": "recovered_from_history",
+              "checked_at": "2026-10-14T13:14:00.080186+00:00"
             }
           }
         },
@@ -4040,6 +4085,11 @@
             "source_query_params": {
               "osv_ecosystem": "PyPI",
               "osv_package_name": "jupyter-server"
+            },
+            "raw_text_check": {
+              "item_id": "osv:ghsa-5789-5fc7-67v3",
+              "status": "recovered_from_history",
+              "checked_at": "2026-10-14T13:14:00.080186+00:00"
             }
           }
         },
@@ -4071,6 +4121,11 @@
             "source_query_params": {
               "osv_ecosystem": "PyPI",
               "osv_package_name": "jupyter-server"
+            },
+            "raw_text_check": {
+              "item_id": "osv:ghsa-64x5-55rw-9974",
+              "status": "recovered_from_history",
+              "checked_at": "2026-10-14T13:14:00.080186+00:00"
             }
           }
         },
@@ -4102,6 +4157,11 @@
             "source_query_params": {
               "osv_ecosystem": "PyPI",
               "osv_package_name": "jupyter-server"
+            },
+            "raw_text_check": {
+              "item_id": "osv:ghsa-9f66-54xg-pc2c",
+              "status": "recovered_from_history",
+              "checked_at": "2026-10-14T13:14:00.080186+00:00"
             }
           }
         },
@@ -4133,6 +4193,11 @@
             "source_query_params": {
               "osv_ecosystem": "PyPI",
               "osv_package_name": "jupyter-server"
+            },
+            "raw_text_check": {
+              "item_id": "osv:ghsa-grfj-wjv9-4f9v",
+              "status": "recovered_from_history",
+              "checked_at": "2026-10-14T13:14:00.080186+00:00"
             }
           }
         },
@@ -4165,6 +4230,11 @@
             "source_query_params": {
               "osv_ecosystem": "PyPI",
               "osv_package_name": "ray"
+            },
+            "raw_text_check": {
+              "item_id": "osv:ghsa-mw35-8rx3-xf9r",
+              "status": "recovered_from_history",
+              "checked_at": "2026-10-14T13:14:00.080186+00:00"
             }
           }
         },
@@ -7476,6 +7546,11 @@
             "source_query_params": {
               "osv_ecosystem": "npm",
               "osv_package_name": "langchain"
+            },
+            "raw_text_check": {
+              "item_id": "osv:ghsa-r399-636x-v7f6",
+              "status": "recovered_from_history",
+              "checked_at": "2026-10-14T13:14:00.080186+00:00"
             }
           }
         },
@@ -7723,6 +7798,11 @@
             "source_query_params": {
               "osv_ecosystem": "PyPI",
               "osv_package_name": "langflow"
+            },
+            "raw_text_check": {
+              "item_id": "osv:ghsa-3645-fxcv-hqr4",
+              "status": "recovered_from_history",
+              "checked_at": "2026-10-14T13:14:00.080186+00:00"
             }
           }
         },
@@ -7753,6 +7833,11 @@
             "source_query_params": {
               "osv_ecosystem": "PyPI",
               "osv_package_name": "langflow"
+            },
+            "raw_text_check": {
+              "item_id": "osv:ghsa-5993-7p27-66g5",
+              "status": "recovered_from_history",
+              "checked_at": "2026-10-14T13:14:00.080186+00:00"
             }
           }
         },
@@ -7813,6 +7898,11 @@
             "source_query_params": {
               "osv_ecosystem": "PyPI",
               "osv_package_name": "langflow"
+            },
+            "raw_text_check": {
+              "item_id": "osv:ghsa-4gv9-mp8m-592r",
+              "status": "recovered_from_history",
+              "checked_at": "2026-10-14T13:14:00.080186+00:00"
             }
           }
         },
@@ -7903,6 +7993,11 @@
             "source_query_params": {
               "osv_ecosystem": "npm",
               "osv_package_name": "flowise"
+            },
+            "raw_text_check": {
+              "item_id": "osv:ghsa-28g4-38q8-3cwc",
+              "status": "recovered_from_history",
+              "checked_at": "2026-10-14T13:14:00.080186+00:00"
             }
           }
         },
@@ -7933,6 +8028,11 @@
             "source_query_params": {
               "osv_ecosystem": "npm",
               "osv_package_name": "flowise"
+            },
+            "raw_text_check": {
+              "item_id": "osv:ghsa-2x8m-83vc-6wv4",
+              "status": "recovered_from_history",
+              "checked_at": "2026-10-14T13:14:00.080186+00:00"
             }
           }
         },
@@ -7961,6 +8061,11 @@
             "source_query_params": {
               "osv_ecosystem": "npm",
               "osv_package_name": "flowise"
+            },
+            "raw_text_check": {
+              "item_id": "osv:ghsa-2qqc-p94c-hxwh",
+              "status": "recovered_from_history",
+              "checked_at": "2026-10-14T13:14:00.080186+00:00"
             }
           }
         },
@@ -14294,6 +14399,11 @@
             "nvd_keyword_search": "prompt injection",
             "nvd_keyword_exact_match": true,
             "nvd_no_rejected": true
+          },
+          "raw_text_check": {
+            "item_id": "nvd:cve-2024-48919",
+            "status": "recovered_from_history",
+            "checked_at": "2026-10-14T13:14:00.080186+00:00"
           }
         }
       },
@@ -14760,6 +14870,11 @@
           "source_query_params": {
             "osv_ecosystem": "PyPI",
             "osv_package_name": "mlflow"
+          },
+          "raw_text_check": {
+            "item_id": "osv:ghsa-46r5-x6jq-v8g6",
+            "status": "recovered_from_history",
+            "checked_at": "2026-10-14T13:14:00.080186+00:00"
           }
         }
       },
@@ -15131,6 +15246,11 @@
           "source_query_params": {
             "osv_ecosystem": "PyPI",
             "osv_package_name": "gradio"
+          },
+          "raw_text_check": {
+            "item_id": "osv:ghsa-39mp-8hj3-5c49",
+            "status": "recovered_from_history",
+            "checked_at": "2026-10-14T13:14:00.080186+00:00"
           }
         }
       },
@@ -15159,6 +15279,11 @@
           "source_query_params": {
             "osv_ecosystem": "PyPI",
             "osv_package_name": "gradio"
+          },
+          "raw_text_check": {
+            "item_id": "osv:ghsa-26jh-r8g2-6fpr",
+            "status": "recovered_from_history",
+            "checked_at": "2026-10-14T13:14:00.080186+00:00"
           }
         }
       },
@@ -15190,6 +15315,11 @@
           "source_query_params": {
             "osv_ecosystem": "PyPI",
             "osv_package_name": "gradio"
+          },
+          "raw_text_check": {
+            "item_id": "osv:ghsa-279j-x4gx-hfrh",
+            "status": "recovered_from_history",
+            "checked_at": "2026-10-14T13:14:00.080186+00:00"
           }
         }
       },
@@ -15221,6 +15351,11 @@
           "source_query_params": {
             "osv_ecosystem": "PyPI",
             "osv_package_name": "gradio"
+          },
+          "raw_text_check": {
+            "item_id": "osv:ghsa-37qc-qgx6-9xjv",
+            "status": "recovered_from_history",
+            "checked_at": "2026-10-14T13:14:00.080186+00:00"
           }
         }
       },
@@ -15252,6 +15387,11 @@
           "source_query_params": {
             "osv_ecosystem": "PyPI",
             "osv_package_name": "gradio"
+          },
+          "raw_text_check": {
+            "item_id": "osv:ghsa-3c67-5hwx-f6wx",
+            "status": "recovered_from_history",
+            "checked_at": "2026-10-14T13:14:00.080186+00:00"
           }
         }
       },
@@ -17711,6 +17851,11 @@
           "source_query_params": {
             "osv_ecosystem": "PyPI",
             "osv_package_name": "jupyter-server"
+          },
+          "raw_text_check": {
+            "item_id": "osv:ghsa-5mrq-x3x5-8v8f",
+            "status": "recovered_from_history",
+            "checked_at": "2026-10-14T13:14:00.080186+00:00"
           }
         }
       },
@@ -17741,6 +17886,11 @@
           "source_query_params": {
             "osv_ecosystem": "PyPI",
             "osv_package_name": "jupyter-server"
+          },
+          "raw_text_check": {
+            "item_id": "osv:ghsa-24qx-w28j-9m6p",
+            "status": "recovered_from_history",
+            "checked_at": "2026-10-14T13:14:00.080186+00:00"
           }
         }
       },
@@ -17771,6 +17921,11 @@
           "source_query_params": {
             "osv_ecosystem": "PyPI",
             "osv_package_name": "jupyter-server"
+          },
+          "raw_text_check": {
+            "item_id": "osv:ghsa-5789-5fc7-67v3",
+            "status": "recovered_from_history",
+            "checked_at": "2026-10-14T13:14:00.080186+00:00"
           }
         }
       },
@@ -17802,6 +17957,11 @@
           "source_query_params": {
             "osv_ecosystem": "PyPI",
             "osv_package_name": "jupyter-server"
+          },
+          "raw_text_check": {
+            "item_id": "osv:ghsa-64x5-55rw-9974",
+            "status": "recovered_from_history",
+            "checked_at": "2026-10-14T13:14:00.080186+00:00"
           }
         }
       },
@@ -17833,6 +17993,11 @@
           "source_query_params": {
             "osv_ecosystem": "PyPI",
             "osv_package_name": "jupyter-server"
+          },
+          "raw_text_check": {
+            "item_id": "osv:ghsa-9f66-54xg-pc2c",
+            "status": "recovered_from_history",
+            "checked_at": "2026-10-14T13:14:00.080186+00:00"
           }
         }
       },
@@ -17864,6 +18029,11 @@
           "source_query_params": {
             "osv_ecosystem": "PyPI",
             "osv_package_name": "jupyter-server"
+          },
+          "raw_text_check": {
+            "item_id": "osv:ghsa-grfj-wjv9-4f9v",
+            "status": "recovered_from_history",
+            "checked_at": "2026-10-14T13:14:00.080186+00:00"
           }
         }
       },
@@ -17896,6 +18066,11 @@
           "source_query_params": {
             "osv_ecosystem": "PyPI",
             "osv_package_name": "ray"
+          },
+          "raw_text_check": {
+            "item_id": "osv:ghsa-mw35-8rx3-xf9r",
+            "status": "recovered_from_history",
+            "checked_at": "2026-10-14T13:14:00.080186+00:00"
           }
         }
       },
@@ -20945,6 +21120,11 @@
           "source_query_params": {
             "osv_ecosystem": "npm",
             "osv_package_name": "langchain"
+          },
+          "raw_text_check": {
+            "item_id": "osv:ghsa-r399-636x-v7f6",
+            "status": "recovered_from_history",
+            "checked_at": "2026-10-14T13:14:00.080186+00:00"
           }
         }
       },
@@ -21192,6 +21372,11 @@
           "source_query_params": {
             "osv_ecosystem": "PyPI",
             "osv_package_name": "langflow"
+          },
+          "raw_text_check": {
+            "item_id": "osv:ghsa-3645-fxcv-hqr4",
+            "status": "recovered_from_history",
+            "checked_at": "2026-10-14T13:14:00.080186+00:00"
           }
         }
       },
@@ -21222,6 +21407,11 @@
           "source_query_params": {
             "osv_ecosystem": "PyPI",
             "osv_package_name": "langflow"
+          },
+          "raw_text_check": {
+            "item_id": "osv:ghsa-5993-7p27-66g5",
+            "status": "recovered_from_history",
+            "checked_at": "2026-10-14T13:14:00.080186+00:00"
           }
         }
       },
@@ -21282,6 +21472,11 @@
           "source_query_params": {
             "osv_ecosystem": "PyPI",
             "osv_package_name": "langflow"
+          },
+          "raw_text_check": {
+            "item_id": "osv:ghsa-4gv9-mp8m-592r",
+            "status": "recovered_from_history",
+            "checked_at": "2026-10-14T13:14:00.080186+00:00"
           }
         }
       },
@@ -21372,6 +21567,11 @@
           "source_query_params": {
             "osv_ecosystem": "npm",
             "osv_package_name": "flowise"
+          },
+          "raw_text_check": {
+            "item_id": "osv:ghsa-28g4-38q8-3cwc",
+            "status": "recovered_from_history",
+            "checked_at": "2026-10-14T13:14:00.080186+00:00"
           }
         }
       },
@@ -21402,6 +21602,11 @@
           "source_query_params": {
             "osv_ecosystem": "npm",
             "osv_package_name": "flowise"
+          },
+          "raw_text_check": {
+            "item_id": "osv:ghsa-2x8m-83vc-6wv4",
+            "status": "recovered_from_history",
+            "checked_at": "2026-10-14T13:14:00.080186+00:00"
           }
         }
       },
@@ -21430,6 +21635,11 @@
           "source_query_params": {
             "osv_ecosystem": "npm",
             "osv_package_name": "flowise"
+          },
+          "raw_text_check": {
+            "item_id": "osv:ghsa-2qqc-p94c-hxwh",
+            "status": "recovered_from_history",
+            "checked_at": "2026-10-14T13:14:00.080186+00:00"
           }
         }
       },

@@ -14,8 +14,9 @@ in-memory instance (tests / A-B isolation).
 
 from __future__ import annotations
 
+from intel_agent.runtime.client import _setting
+
 import json
-import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
@@ -240,11 +241,11 @@ class PlaybookStore:
 
 
 def playbook_enabled() -> bool:
-    return os.getenv("INTEL_PLAYBOOK_ENABLED", "1").strip().lower() not in {
+    return _setting("INTEL_PLAYBOOK_ENABLED", "1").strip().lower() not in {
         "0", "false", "no", "off",
     }
 
 
 def default_playbook_path() -> Path:
-    raw = os.getenv("INTEL_AGENT_PLAYBOOK_PATH")
+    raw = _setting("INTEL_AGENT_PLAYBOOK_PATH")
     return Path(raw) if raw else DEFAULT_PLAYBOOK_PATH

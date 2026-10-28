@@ -10,9 +10,10 @@ so the controller keeps the agent yield instead of re-running rules fallback.
 
 from __future__ import annotations
 
+from intel_agent.runtime.client import _setting
+
 import asyncio
 import concurrent.futures
-import os
 import threading
 from dataclasses import dataclass
 from typing import Any
@@ -34,7 +35,7 @@ DEFAULT_MAX_TURNS = 24
 def resolve_max_turns(explicit: int | None = None) -> int:
     if explicit is not None:
         return max(1, int(explicit))
-    raw = (os.getenv("INTEL_AGENT_MAX_TURNS") or "").strip()
+    raw = (_setting("INTEL_AGENT_MAX_TURNS") or "").strip()
     if raw.isdigit():
         return max(1, int(raw))
     return DEFAULT_MAX_TURNS
@@ -66,7 +67,7 @@ class IntelAgentLoop:
         self._continuous_enabled = True
 
     def available(self) -> bool:
-        if self._runner is not None:
+        if self._runner is not None or self._client_factory is not None:
             return True
         ok, _ = runtime_client.sdk_runtime_available()
         return ok

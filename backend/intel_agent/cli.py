@@ -8,7 +8,9 @@
 from __future__ import annotations
 
 import argparse
+import json
 from datetime import datetime, timezone
+from pathlib import Path
 
 from .engine.controller import IntelAgentController
 from .engine.modes import FullCollectionMode, IncrementalCollectionMode
@@ -65,6 +67,17 @@ def _show_latest(_: argparse.Namespace) -> int:
     return 0
 
 
+def _maintain(args: argparse.Namespace) -> int:
+    from .maintenance import backfill_raw_text, import_csv
+    store = default_store()
+    if args.command == "import-csv":
+        report = import_csv(store, Path(args.path), dry_run=args.dry_run)
+    else:
+        report = backfill_raw_text(store, dry_run=args.dry_run)
+    print(json.dumps(report, ensure_ascii=False, indent=2))
+    return 1 if any(row.get("status") == "fetch_failed" for row in report.get("results", [])) else 0
+
+
 def _report(blackboard) -> None:
     print(f"\nRun {blackboard.run_id} [{blackboard.run_mode}] finished.")
     print(f"  rounds: {len(blackboard.query_history)}")
@@ -102,6 +115,14 @@ def build_parser() -> argparse.ArgumentParser:
 
     latest = subparsers.add_parser("latest", help="Show the most recent persisted run.")
     latest.set_defaults(func=_show_latest)
+
+    importer = subparsers.add_parser("import-csv", help="Import historical items without truncating text.")
+    importer.add_argument("path")
+    importer.add_argument("--dry-run", action="store_true")
+    importer.set_defaults(func=_maintain)
+    backfill = subparsers.add_parser("backfill-raw-text", help="Repair missing/clipped raw text in completed runs.")
+    backfill.add_argument("--dry-run", action="store_true")
+    backfill.set_defaults(func=_maintain)
 
     return parser
 

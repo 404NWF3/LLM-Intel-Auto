@@ -9,7 +9,7 @@ from pydantic import ValidationError
 
 from ..engine.bandit import select_portfolio
 from ..engine.gaps import SOURCE_CHANNEL
-from ..schemas import QueryCandidate
+from ..schemas import QueryCandidate, REGISTERED_SOURCE_NAMES
 from ..topics import ALL_SECURITY_TOPICS
 from .context import ToolContext
 
@@ -26,7 +26,7 @@ _CANDIDATE_SCHEMA = {
                     "candidate_id": {"type": "string"},
                     "source_name": {
                         "type": "string",
-                        "enum": ["nvd_cve_api", "arxiv_api", "cisa_kev_json", "osv_dev_api"],
+                        "enum": list(REGISTERED_SOURCE_NAMES),
                     },
                     "query_text": {"type": "string"},
                     "params": {
@@ -42,7 +42,7 @@ _CANDIDATE_SCHEMA = {
                     },
                     "evidence_channel": {
                         "type": "string",
-                        "enum": ["research", "vulnerability_advisory", "exploitation"],
+                        "enum": ["research", "vulnerability_advisory", "exploitation", "community"],
                     },
                     "target_topics": {"type": "array", "items": {"type": "string"}},
                     "target_gap_ids": {"type": "array", "items": {"type": "string"}},
@@ -70,6 +70,7 @@ def build_adaptive_tools(ctx: ToolContext) -> list[Any]:
     )
     async def get_collection_state(args: dict[str, Any]) -> dict[str, Any]:
         state = {
+            "enabled_sources": sorted(ctx.enabled_sources),
             "corpus_gaps": [
                 gap.model_dump(mode="json")
                 for gap in ctx.corpus_gaps
@@ -145,6 +146,8 @@ def candidate_validation_error(
 ) -> str | None:
     from .source_tools import candidate_exceeds_time_scope
 
+    if candidate.source_name not in ctx.enabled_sources:
+        return "source is disabled or requires configuration"
     if candidate.evidence_channel != SOURCE_CHANNEL[candidate.source_name]:
         return "source and evidence_channel do not match"
     unknown_topics = sorted(set(candidate.target_topics) - set(ALL_SECURITY_TOPICS))

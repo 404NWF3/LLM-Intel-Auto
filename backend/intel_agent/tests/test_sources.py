@@ -93,3 +93,14 @@ def test_build_arxiv_search_query_uses_categories():
     query = sources.build_arxiv_search_query("jailbreak", ["jailbreak"])
     assert "cat:cs.CR" in query
     assert 'all:"jailbreak"' in query
+
+
+def test_arxiv_preserves_full_multiline_summary_without_character_limit():
+    from xml.sax.saxutils import escape
+    summary = "Paragraph & formula <x>.\n\n" + "full abstract " * 3000 + "END"
+    xml = f'''<feed xmlns="http://www.w3.org/2005/Atom"><entry>
+    <id>https://arxiv.org/abs/2601.12345v1</id><title>Paper</title>
+    <summary>{escape(summary)}</summary></entry></feed>'''
+    item = sources.parse_arxiv_items(xml)[0]
+    assert item.raw_text == summary
+    assert item.summary == summary

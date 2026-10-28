@@ -4,9 +4,32 @@ __pycache__/
 
 /data
 
-# base KG pipeline outputs
-base_kg/output/
 
 /.agents
 /.cursor
 
+
+.venv/
+.pytest_cache/
+
+# Next.js local build artifacts
+frontend/node_modules/
+frontend/.next/
+frontend/*.tsbuildinfo
+frontend/.env.local
+
+# Isolated red-team runtime and generated graph artifacts
+backend/red_team/runtime/.venv/
+backend/red_team/runtime/.env
+backend/red_team/runtime/output/
+backend/red_team/runtime/cache/
+backend/red_team/runtime/logs/
+backend/red_team/runtime/backups/
+backend/red_team/runtime/summary_input/
+backend/red_team/runtime/artifacts/
+backend/red_team/runtime/reports/
+
+/reports
+/data
+/docs
+/软著申请材料

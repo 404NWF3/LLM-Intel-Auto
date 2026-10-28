@@ -11,10 +11,11 @@ the pipeline is fully testable offline.
 
 from __future__ import annotations
 
+from intel_agent.runtime.client import _setting
+
 import hashlib
 import json
 import math
-import os
 import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -46,7 +47,7 @@ class RelevanceConfig:
             ("embedding_accept", "INTEL_RELEVANCE_EMB_ACCEPT"),
             ("embedding_reject", "INTEL_RELEVANCE_EMB_REJECT"),
         ):
-            raw = os.getenv(env_name)
+            raw = _setting(env_name)
             if raw:
                 try:
                     setattr(config, attr, float(raw))
@@ -232,8 +233,8 @@ def _set_relevance(
 
 
 def _glm_openai_settings() -> tuple[str, str]:
-    base_url = os.getenv("GLM_BASE_URL", "https://open.bigmodel.cn/api/paas/v4").rstrip("/")
-    return base_url, os.getenv("GLM_API_KEY", "")
+    base_url = _setting("GLM_BASE_URL", "https://open.bigmodel.cn/api/paas/v4").rstrip("/")
+    return base_url, _setting("GLM_API_KEY", "")
 
 
 def _post_json(url: str, payload: dict[str, Any], api_key: str, timeout: int = 60) -> dict[str, Any]:
@@ -248,7 +249,7 @@ def _post_json(url: str, payload: dict[str, Any], api_key: str, timeout: int = 6
 
 
 def default_embedder(model: str | None = None) -> EmbedFn:
-    embedding_model = model or os.getenv("INTEL_EMBEDDING_MODEL", "embedding-3")
+    embedding_model = model or _setting("INTEL_EMBEDDING_MODEL", "embedding-3")
     base_url, api_key = _glm_openai_settings()
 
     def embed(texts: Sequence[str]) -> list[list[float]]:
@@ -265,8 +266,8 @@ def default_embedder(model: str | None = None) -> EmbedFn:
 def default_llm_judge(model: str | None = None) -> JudgeFn:
     judge_model = (
         model
-        or os.getenv("INTEL_RELEVANCE_JUDGE_MODEL")
-        or os.getenv("GLM_FAST_MODEL", "glm-4.7-flash")
+        or _setting("INTEL_RELEVANCE_JUDGE_MODEL")
+        or _setting("GLM_FAST_MODEL", "glm-4.7-flash")
     )
     base_url, api_key = _glm_openai_settings()
 
@@ -311,8 +312,8 @@ def default_llm_judge(model: str | None = None) -> JudgeFn:
 
 def default_pipeline() -> RelevancePipeline | None:
     """Live GLM-backed pipeline, or None when disabled / no key configured."""
-    if os.getenv("INTEL_RELEVANCE_ENABLED", "1").strip().lower() in {"0", "false", "no", "off"}:
+    if _setting("INTEL_RELEVANCE_ENABLED", "1").strip().lower() in {"0", "false", "no", "off"}:
         return None
-    if not os.getenv("GLM_API_KEY"):
+    if not _setting("GLM_API_KEY"):
         return None
     return RelevancePipeline(embedder=default_embedder(), llm_judge=default_llm_judge())

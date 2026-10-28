@@ -9,10 +9,11 @@ loop is fully testable offline.
 
 from __future__ import annotations
 
-import os
+from intel_agent.runtime.client import _setting
+
 import re
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from ..agent.critic import decide_termination
@@ -50,6 +51,7 @@ from ..schemas import (
     SourceCheckpoint,
 )
 from ..sources import default_registered_api_sources
+from ..community_sources import COMMUNITY_SOURCE_NAMES
 from ..topics import EXTENDED_SECURITY_TOPICS
 from ..tools.context import ToolContext
 from .context import render_digest
@@ -74,7 +76,7 @@ DEFAULT_MAX_RESULTS_PER_CALL = 20
 
 
 def incremental_strategy() -> str:
-    value = os.getenv("INTEL_INCREMENTAL_STRATEGY", "adaptive").strip().lower()
+    value = _setting("INTEL_INCREMENTAL_STRATEGY", "adaptive").strip().lower()
     return value if value in {"adaptive", "legacy"} else "adaptive"
 
 
@@ -279,6 +281,13 @@ class IntelAgentController:
             since = min(source_since.values()) if source_since else None
         else:
             since, until = mode.resolve_time_scope(self.store)
+        if isinstance(mode, IncrementalCollectionMode) and until is not None:
+            community_since = mode.since or until - timedelta(days=mode.window_days or 1)
+            source_since.update({
+                source.source_name: community_since
+                for source in blackboard.approved_sources
+                if source.enabled and source.source_name in COMMUNITY_SOURCE_NAMES
+            })
         quota = coverage_quota()
         max_rounds = budget.max_rounds or 6
         executed_keys: set[str] = set()
@@ -412,6 +421,7 @@ class IntelAgentController:
             source_checkpoints=blackboard.source_checkpoints,
             extended_trends=blackboard.extended_trends,
             extended_focus=bool(mode.focus and mode.focus.strip().lower() in EXTENDED_SECURITY_TOPICS),
+            enabled_sources={source.source_name for source in blackboard.approved_sources if source.enabled},
         )
 
     def _recall(self, mode: CollectionMode, run_goal: str) -> str | None:
@@ -580,14 +590,19 @@ class IntelAgentController:
         checkpoints = {checkpoint.source_name: checkpoint for checkpoint in blackboard.source_checkpoints}
         calls_by_id = {str(call.get("call_id")): call for call in ctx.executed_calls}
         for outcome in outcomes:
-            checkpoint = checkpoints.get(outcome.source_name) or SourceCheckpoint(
-                source_name=outcome.source_name
-            )
-            checkpoints[outcome.source_name] = checkpoint
-            checkpoint.overlap_hours = incremental_overlap_hours()
-            checkpoint.last_attempt_at = now
-            checkpoint.complete = False
-            if outcome.success:
+            call = calls_by_id.get(outcome.call_id, {})
+            # Community queries are bounded searches, not complete source scans.
+            # Keep their paging within this run without advancing a source watermark.
+            checkpoint = None
+            if outcome.source_name not in COMMUNITY_SOURCE_NAMES:
+                checkpoint = checkpoints.get(outcome.source_name) or SourceCheckpoint(
+                    source_name=outcome.source_name
+                )
+                checkpoints[outcome.source_name] = checkpoint
+                checkpoint.overlap_hours = incremental_overlap_hours()
+                checkpoint.last_attempt_at = now
+                checkpoint.complete = False
+            if outcome.success and checkpoint is not None:
                 checkpoint.last_success_at = now
                 if outcome.source_name in {"nvd_cve_api", "arxiv_api"} and not outcome.has_more:
                     checkpoint.watermark = ctx.until
@@ -612,9 +627,14 @@ class IntelAgentController:
                     run_gap.status = "satisfied"
                     run_gap.attempts += 1
             if outcome.has_more:
-                offset_key = "nvd_start_index" if outcome.source_name == "nvd_cve_api" else "arxiv_start"
-                current_offset = int(outcome.params.get(offset_key) or 0)
-                checkpoint.cursor = str(current_offset + self.max_results_per_call)
+                if outcome.source_name in COMMUNITY_SOURCE_NAMES:
+                    pagination = {"query_text": outcome.query_text, "params": call.get("next_params", {})}
+                else:
+                    offset_key = "nvd_start_index" if outcome.source_name == "nvd_cve_api" else "arxiv_start"
+                    current_offset = int(outcome.params.get(offset_key) or 0)
+                    assert checkpoint is not None
+                    checkpoint.cursor = str(current_offset + self.max_results_per_call)
+                    pagination = {offset_key: current_offset + self.max_results_per_call}
                 blackboard.run_gaps.append(
                     RunGap(
                         gap_id=f"run:pagination:{outcome.call_id}",
@@ -624,7 +644,7 @@ class IntelAgentController:
                         priority="high",
                         retryable=True,
                         rationale="Source page was full; fetch the next page.",
-                        metadata={offset_key: current_offset + self.max_results_per_call},
+                        metadata=pagination,
                     )
                 )
             if not outcome.success:
@@ -843,12 +863,11 @@ class IntelAgentController:
 
     def _round_plan(self, mode: CollectionMode, round_index: int) -> SearchQueryPlan:
         return SearchQueryPlan(
-            query_text=mode.focus or "", source_names=[s for s in _SOURCES],
+            query_text=mode.focus or "", source_names=[
+                source.source_name for source in default_registered_api_sources() if source.enabled
+            ],
             target_topics=mode.target_topics, round_index=round_index,
         )
-
-
-_SOURCES = ("nvd_cve_api", "arxiv_api", "cisa_kev_json", "osv_dev_api")
 
 
 def _default_playbook() -> PlaybookStore | None:

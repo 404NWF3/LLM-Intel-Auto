@@ -7,8 +7,9 @@ reward-only ranking when no embedder / API key is available.
 
 from __future__ import annotations
 
+from intel_agent.runtime.client import _setting
+
 import math
-import os
 from typing import Callable, Sequence
 
 EmbedFn = Callable[[list[str]], list[list[float]]]
@@ -25,9 +26,9 @@ def cosine_similarity(a: Sequence[float], b: Sequence[float]) -> float:
 
 def default_playbook_embedder() -> EmbedFn | None:
     """Live GLM embedder, or None when embeddings are unavailable/disabled."""
-    if os.getenv("INTEL_PLAYBOOK_EMBED", "1").strip().lower() in {"0", "false", "no", "off"}:
+    if _setting("INTEL_PLAYBOOK_EMBED", "1").strip().lower() in {"0", "false", "no", "off"}:
         return None
-    if not os.getenv("GLM_API_KEY"):
+    if not _setting("GLM_API_KEY"):
         return None
     from ..relevance import default_embedder
 

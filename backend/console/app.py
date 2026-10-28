@@ -1,12 +1,11 @@
-"""Gradio console: intel_agent collection + live verbose trace + ctinexus_kg.
-
-Orchestrates the two backend packages without coupling them to each other.
-"""
+"""Gradio console for intelligence collection, history and live traces."""
 
 from __future__ import annotations
 
+from intel_agent.runtime.client import _setting
+from intel_agent.runtime import client as runtime_client
+
 import json
-import os
 import queue
 import threading
 from datetime import datetime, timezone
@@ -15,7 +14,7 @@ from typing import Any, Iterator
 
 import gradio as gr
 
-from ctinexus_kg.topics import ALL_SECURITY_TOPICS, CORE_SECURITY_TOPICS
+from common.topics import ALL_SECURITY_TOPICS, CORE_SECURITY_TOPICS
 from intel_agent.engine.controller import IntelAgentController
 from intel_agent.engine.modes import FullCollectionMode, IncrementalCollectionMode
 from intel_agent.observability import TraceSink, format_event_line, load_trace_jsonl
@@ -29,15 +28,6 @@ from .db_browser import (
     source_choices,
     store_status,
     topic_choices,
-)
-from .kg_panel import (
-    BULK_POLICY_CHOICES,
-    generate_bulk_from_db,
-    generate_batch_from_db,
-    generate_selected_from_db,
-    kg_config_summary,
-    list_kg_records,
-    refresh_db_ready,
 )
 from .intel_dashboard import (
     CANDIDATE_HEADERS,
@@ -209,8 +199,14 @@ def build_app() -> gr.Blocks:
     with gr.Blocks(title="LLM Security Intel Console") as app:
         gr.Markdown(
             "# LLM Security Intelligence Console\n"
-            "Collect with **intel_agent** (live verbose trace) → optionally generate "
-            "item KGs with **ctinexus_kg**."
+            "Collect LLM security intelligence with **intel_agent**, inspect results and replay traces."
+        )
+        sdk_ready, sdk_reason = runtime_client.sdk_runtime_available()
+        gr.Markdown(
+            f"**采集配置：{'SDK 智能采集' if sdk_ready else '规则采集'}** · "
+            f"主模型 `{runtime_client.main_model()}` · 快速模型 `{runtime_client.fast_model()}`\n\n"
+            + ("SDK 失败时会降级为规则采集，请查看追踪中的 `[fallback]`。"
+               if sdk_ready else f"SDK 未就绪：{sdk_reason}")
         )
         state = gr.State({})
 
@@ -306,140 +302,6 @@ def build_app() -> gr.Blocks:
             replay_btn = gr.Button("Load trace JSONL")
             replay_out = gr.Textbox(label="Trace", lines=24)
             replay_btn.click(_replay_trace, inputs=[rid], outputs=[replay_out])
-
-        with gr.Tab("Knowledge Graphs"):
-            gr.Markdown(
-                "Generate item-level KGs from **persisted intel** (Mongo/JSON store). "
-                "Model settings come from `.env` (`CTINEXUS_*` → `GLM_*`); UI model pickers are hidden. "
-                "Succeeded graphs are written to disk and upserted into the `knowledge_graphs` store."
-            )
-            kg_cfg_box = gr.Textbox(
-                label="Active CTINexus config (from env)",
-                value=kg_config_summary(),
-                interactive=False,
-            )
-            with gr.Row():
-                kg_run = gr.Textbox(label="Filter run_id (optional)")
-                kg_topic = gr.Dropdown(
-                    label="Topic (Core + Extended)",
-                    choices=[""] + list(ALL_SECURITY_TOPICS),
-                    value="",
-                )
-                kg_source = gr.Textbox(label="Source filter", placeholder="nvd_cve_api")
-                kg_limit = gr.Number(value=50, label="Query limit", precision=0)
-            with gr.Row():
-                refresh_ready = gr.Button("Refresh kg_ready from database", variant="secondary")
-                batch_limit = gr.Number(
-                    value=10,
-                    label="Small batch size",
-                    precision=0,
-                    minimum=1,
-                    maximum=50,
-                )
-            kg_ready_msg = gr.Textbox(label="Ready list status", interactive=False)
-            item_dd = gr.Dropdown(label="KG-ready item", choices=[], allow_custom_value=True)
-            with gr.Row():
-                one_btn = gr.Button("Generate KG for selected")
-                batch_btn = gr.Button("Batch generate kg_ready", variant="primary")
-            kg_out = gr.Code(label="KG result", language="json")
-            kg_table = gr.Dataframe(
-                headers=["item_id", "status", "triplets", "entities", "excluded", "error", "path"],
-                label="KG generation results",
-                interactive=False,
-            )
-            refresh_ready.click(
-                refresh_db_ready,
-                inputs=[kg_run, kg_topic, kg_source, kg_limit],
-                outputs=[kg_ready_msg, item_dd],
-            )
-            one_btn.click(
-                generate_selected_from_db,
-                inputs=[item_dd],
-                outputs=[kg_out, kg_table],
-                concurrency_limit=1,
-                concurrency_id="ctinexus_generation",
-            )
-            batch_btn.click(
-                generate_batch_from_db,
-                inputs=[kg_run, kg_topic, kg_source, batch_limit],
-                outputs=[kg_out, kg_table],
-                concurrency_limit=1,
-                concurrency_id="ctinexus_generation",
-            )
-
-            with gr.Accordion("大批量生成子 KG", open=False):
-                gr.Markdown(
-                    "按上方的 run/topic/source 条件扫描情报并顺序生成 item 子 KG。"
-                    "每条完成后立即落库；默认跳过已经成功的项并重试失败项，因此任务"
-                    "中断后可以再次启动续跑。停止操作会在当前模型调用返回后生效。"
-                )
-                with gr.Row():
-                    bulk_scan_limit = gr.Number(
-                        value=1000,
-                        label="最多扫描情报数",
-                        precision=0,
-                        minimum=1,
-                        maximum=10000,
-                    )
-                    bulk_max_items = gr.Number(
-                        value=100,
-                        label="本次最多生成数",
-                        precision=0,
-                        minimum=1,
-                        maximum=1000,
-                    )
-                    bulk_policy = gr.Dropdown(
-                        choices=BULK_POLICY_CHOICES,
-                        value="retry_failed",
-                        label="已有 KG 处理策略",
-                    )
-                with gr.Row():
-                    bulk_start = gr.Button("开始大批量生成", variant="primary")
-                    bulk_stop = gr.Button("停止大批量任务", variant="stop")
-                bulk_out = gr.Code(label="大批量任务进度", language="json")
-                bulk_table = gr.Dataframe(
-                    headers=[
-                        "item_id",
-                        "status",
-                        "triplets",
-                        "entities",
-                        "excluded",
-                        "error",
-                        "path",
-                    ],
-                    label="最近 100 条处理结果",
-                    interactive=False,
-                    wrap=True,
-                )
-                bulk_event = bulk_start.click(
-                    generate_bulk_from_db,
-                    inputs=[
-                        kg_run,
-                        kg_topic,
-                        kg_source,
-                        bulk_scan_limit,
-                        bulk_max_items,
-                        bulk_policy,
-                    ],
-                    outputs=[bulk_out, bulk_table],
-                    concurrency_limit=1,
-                    concurrency_id="ctinexus_generation",
-                    show_progress="minimal",
-                )
-                bulk_stop.click(
-                    lambda: json.dumps(
-                        {
-                            "status": "cancel_requested",
-                            "message": "当前模型调用返回后停止；已完成记录均已落库。",
-                        },
-                        ensure_ascii=False,
-                        indent=2,
-                    ),
-                    outputs=[bulk_out],
-                    cancels=[bulk_event],
-                    queue=False,
-                )
-            app.load(kg_config_summary, outputs=[kg_cfg_box])
 
         with gr.Tab("Database"):
             gr.Markdown(
@@ -566,46 +428,6 @@ def build_app() -> gr.Blocks:
                     outputs=[detail_json, detail_table, detail_csv],
                 )
 
-            with gr.Accordion("Knowledge graph records", open=True):
-                gr.Markdown(
-                    "Persisted item KGs (`knowledge_graphs` collection or "
-                    "`data/intel_agent/knowledge_graphs/`)."
-                )
-                with gr.Row():
-                    kgdb_status = gr.Dropdown(
-                        label="Status",
-                        choices=["", "succeeded", "failed", "skipped", "pending"],
-                        value="",
-                    )
-                    kgdb_run = gr.Textbox(label="run_id filter")
-                    kgdb_item = gr.Textbox(label="item_id filter")
-                    kgdb_limit = gr.Number(value=100, label="Limit", precision=0)
-                kgdb_btn = gr.Button("List KG records", variant="primary")
-                kgdb_msg = gr.Textbox(label="KG records result", interactive=False)
-                kgdb_table = gr.Dataframe(
-                    headers=[
-                        "item_id",
-                        "run_id",
-                        "status",
-                        "source_name",
-                        "triplet_count",
-                        "entity_count",
-                        "model",
-                        "embedding_model",
-                        "saved_at",
-                        "error",
-                        "ctinexus_json_path",
-                    ],
-                    label="Knowledge graphs",
-                    interactive=False,
-                )
-                kgdb_csv = gr.File(label="Download KG records CSV")
-                kgdb_btn.click(
-                    list_kg_records,
-                    inputs=[kgdb_status, kgdb_run, kgdb_item, kgdb_limit],
-                    outputs=[kgdb_msg, kgdb_table, kgdb_csv],
-                )
-
             app.load(store_status, outputs=[db_status])
 
         with gr.Tab("Memory"):
@@ -700,8 +522,8 @@ def build_app() -> gr.Blocks:
     return app
 
 def main() -> None:
-    host = os.getenv("GRADIO_SERVER_NAME", "0.0.0.0")
-    port = int(os.getenv("GRADIO_SERVER_PORT", "8000"))
+    host = _setting("GRADIO_SERVER_NAME", "127.0.0.1")
+    port = int(_setting("GRADIO_SERVER_PORT", "8000"))
     build_app().launch(server_name=host, server_port=port)
 
 

@@ -1,4 +1,4 @@
-# Unified runtime: intel_agent + ctinexus_kg + Gradio console.
+# Unified runtime: intel_agent + Gradio console.
 FROM python:3.12-slim-bookworm
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -37,7 +37,6 @@ RUN --mount=type=cache,target=/root/.cache/pip \
             "claude-agent-sdk>=0.2.115,<0.3" \
             "pydantic>=2.7" \
             "pymongo>=4.6" \
-            "ctinexus==0.2.1" \
             "gradio>=5.0.0,<6.0.0" \
             "matplotlib>=3.10.9"; then \
             break; \

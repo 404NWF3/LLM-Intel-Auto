@@ -1,0 +1,81 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   animations.css — 全局 @keyframes 与通用动画工具类
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* ── 状态脉冲（WP 运行中圆点）───────────────────────────────── */
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(0.8);
+  }
+}
+
+/* ── SVG 数据流动线（stroke-dashoffset）────────────────────── */
+@keyframes flow-dash {
+  to {
+    stroke-dashoffset: -24;
+  }
+}
+
+/* ── 滚动揭示（ScrollReveal 组件使用）──────────────────────── */
+@keyframes fade-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── 骨架屏 shimmer ─────────────────────────────────────────── */
+@keyframes shimmer {
+  from {
+    background-position: -200% 0;
+  }
+  to {
+    background-position: 200% 0;
+  }
+}
+
+/* ── ScrollReveal 工具类 ────────────────────────────────────── */
+[data-reveal] {
+  opacity: 0;
+}
+
+[data-reveal].is-visible {
+  animation: fade-slide-up var(--duration-reveal) var(--ease-reveal) forwards;
+}
+
+[data-reveal-delay="1"] {
+  animation-delay: 80ms;
+}
+[data-reveal-delay="2"] {
+  animation-delay: 160ms;
+}
+[data-reveal-delay="3"] {
+  animation-delay: 240ms;
+}
+[data-reveal-delay="4"] {
+  animation-delay: 320ms;
+}
+
+/* ── 骨架屏工具类 ───────────────────────────────────────────── */
+.skeleton-line {
+  background: linear-gradient(
+    90deg,
+    var(--surface-2) 25%,
+    var(--surface) 50%,
+    var(--surface-2) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+  border-radius: var(--radius-xs);
+  height: 0.85em;
+}

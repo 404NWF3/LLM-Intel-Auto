@@ -1,0 +1,105 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding: 1.15rem;
+  border: 1px solid var(--line-soft);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.05);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.title {
+  margin: 0;
+  font-size: 1.08rem;
+}
+
+.subtitle {
+  margin: 0.35rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+}
+
+.badge {
+  padding: 0.3rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.badgeGood {
+  background: rgba(22, 163, 74, 0.12);
+  color: rgb(21, 128, 61);
+}
+
+.badgeWarn {
+  background: rgba(234, 88, 12, 0.12);
+  color: rgb(194, 65, 12);
+}
+
+.badgeMuted {
+  background: rgba(15, 23, 42, 0.08);
+  color: var(--text-muted);
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  color: var(--text-faint);
+  font-size: 0.78rem;
+}
+
+.meta span {
+  padding: 0.24rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.05);
+}
+
+.body {
+  min-height: 280px;
+}
+
+.note {
+  margin: 0 0 0.85rem;
+  color: var(--text-muted);
+  font-size: 0.84rem;
+}
+
+.error {
+  margin: 0 0 0.85rem;
+  color: rgb(185, 28, 28);
+  font-size: 0.84rem;
+}
+
+.fallback {
+  margin: 0;
+  padding: 0.95rem;
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.04);
+  color: var(--text-main);
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow: auto;
+}
+
+.emptyState {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 220px;
+  border: 1px dashed var(--line-soft);
+  border-radius: 14px;
+  color: var(--text-faint);
+  text-align: center;
+  padding: 1.2rem;
+  line-height: 1.6;
+}

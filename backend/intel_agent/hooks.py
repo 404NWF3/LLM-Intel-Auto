@@ -10,23 +10,21 @@ surface is unavailable.
 
 from __future__ import annotations
 
-import os
+from intel_agent.runtime.client import _setting
+
 from typing import Any
 
 from .tools.context import ToolContext
-from .tools.constants import SERVER_NAME
+from .tools.constants import SERVER_NAME, SOURCE_TOOL_NAMES
 from .schemas import RunGap
 
 _SOURCE_TOOLS = {
-    f"mcp__{SERVER_NAME}__search_nvd": "nvd_cve_api",
-    f"mcp__{SERVER_NAME}__search_arxiv": "arxiv_api",
-    f"mcp__{SERVER_NAME}__search_cisa_kev": "cisa_kev_json",
-    f"mcp__{SERVER_NAME}__search_osv": "osv_dev_api",
+    f"mcp__{SERVER_NAME}__{name}": source for name, source in SOURCE_TOOL_NAMES.items()
 }
 
 
 def hooks_enabled() -> bool:
-    return os.getenv("INTEL_AGENT_HOOKS", "1").strip().lower() not in {"0", "false", "no", "off"}
+    return _setting("INTEL_AGENT_HOOKS", "1").strip().lower() not in {"0", "false", "no", "off"}
 
 
 def build_hooks(ctx: ToolContext) -> dict[str, Any] | None:
@@ -42,7 +40,9 @@ def build_hooks(ctx: ToolContext) -> dict[str, Any] | None:
         tool_name = str(input_data.get("tool_name", ""))
         tool_input = input_data.get("tool_input") or {}
         reason: str | None = None
-        if tool_name in _SOURCE_TOOLS and not ctx.budget_remaining():
+        if tool_name in _SOURCE_TOOLS and _SOURCE_TOOLS[tool_name] not in ctx.enabled_sources:
+            reason = "Source is disabled or requires configuration."
+        elif tool_name in _SOURCE_TOOLS and not ctx.budget_remaining():
             reason = "API-call budget exhausted for this run."
         elif tool_name in _SOURCE_TOOLS and len(ctx.executed_calls) >= ctx.max_calls_this_round:
             reason = "Per-round source-call budget exhausted."

@@ -8,8 +8,9 @@ and deterministic query building for the rules-only fallback round.
 
 from __future__ import annotations
 
+from intel_agent.runtime.client import _setting
+
 import json
-import os
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -22,6 +23,7 @@ from .schemas import (
     SearchQueryPlan,
 )
 from .topics import ALL_SECURITY_TOPICS, CORE_SECURITY_TOPICS, build_gap_query, detect_topics
+from .sources import default_registered_api_sources
 
 RELEVANT_SCORE_THRESHOLD = 0.5
 DEFAULT_COVERAGE_QUOTA = 3
@@ -41,7 +43,7 @@ class SourceQuerySpec:
 
 
 def _env_int(name: str, default: int) -> int:
-    raw = os.getenv(name)
+    raw = _setting(name)
     if not raw:
         return default
     try:
@@ -51,7 +53,7 @@ def _env_int(name: str, default: int) -> int:
 
 
 def _env_float(name: str, default: float) -> float:
-    raw = os.getenv(name)
+    raw = _setting(name)
     if not raw:
         return default
     try:
@@ -243,7 +245,10 @@ def build_fallback_specs(
     query_text = query_plan.query_text or build_gap_query(focus_topics[:3])
     per_source = max(5, min(20, max_results // 4))
     specs: list[SourceQuerySpec] = []
-    for source_name in query_plan.source_names or list(_DEFAULT_SOURCES):
+    enabled = [source.source_name for source in default_registered_api_sources() if source.enabled]
+    for source_name in query_plan.source_names or enabled:
+        if source_name not in enabled:
+            continue
         spec = SourceQuerySpec(
             source_name=source_name,
             query_text=query_text,
@@ -256,9 +261,6 @@ def build_fallback_specs(
             continue
         specs.append(spec)
     return specs
-
-
-_DEFAULT_SOURCES = ("nvd_cve_api", "arxiv_api", "cisa_kev_json", "osv_dev_api")
 
 
 def topic_bucket(topics: list[str]) -> str:

@@ -30,6 +30,10 @@ SOURCE_CHANNEL = {
     "nvd_cve_api": "vulnerability_advisory",
     "osv_dev_api": "vulnerability_advisory",
     "cisa_kev_json": "exploitation",
+    "github_issues": "community",
+    "hackernews": "community",
+    "discourse": "community",
+    "reddit": "community",
 }
 SOURCE_TRUST = {
     "arxiv_api": 0.72,
@@ -149,7 +153,9 @@ def compute_corpus_gaps(
 ) -> list[CorpusGap]:
     now = now or datetime.now(timezone.utc)
     targets = coverage_targets()
-    unique = _uniqueness_weights(items)
+    unique = _uniqueness_weights([
+        item for item in items if SOURCE_CHANNEL.get(item.source_name) != "community"
+    ])
     evidence: dict[tuple[str, str], float] = defaultdict(float)
     newest: dict[tuple[str, str], datetime] = {}
 

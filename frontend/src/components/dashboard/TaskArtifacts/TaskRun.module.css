@@ -1,0 +1,150 @@
+.runPanel {
+  padding: 22px;
+  border: 1px solid #ddd8cc;
+  background: #fbf9f3;
+  border-radius: 14px;
+}
+.runHeading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 15px;
+}
+.runHeading h2 {
+  font-size: 18px;
+  font-weight: 500;
+  margin: 8px 0 0;
+  overflow-wrap: anywhere;
+}
+.runId {
+  font: 9px var(--font-mono);
+  color: #9f9585;
+  margin-top: 12px;
+  overflow-wrap: anywhere;
+}
+.status {
+  font-size: 10px;
+  padding: 5px 9px;
+  background: #e8eddf;
+  color: #6e7c5c;
+  border-radius: 5px;
+  white-space: nowrap;
+}
+.steps {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 24px 0;
+}
+.steps > span {
+  flex: 1;
+  padding: 10px 6px;
+  border-radius: 6px;
+  background: #eeece4;
+  color: #a19887;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 10px;
+  min-width: 65px;
+}
+.steps i {
+  font: 9px var(--font-mono);
+  opacity: 0.7;
+}
+.steps > span.activeStep {
+  background: #344031;
+  color: #edf0e4;
+}
+.runStats {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.runStats span {
+  font-size: 10px;
+  color: #9b8d76;
+}
+.runStats strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  color: #5c5849;
+  margin-top: 6px;
+}
+.actions {
+  border-top: 1px solid #e7e0d3;
+  padding-top: 14px;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.actions button {
+  border: 0;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  color: #8c7654;
+  cursor: pointer;
+  padding: 2px;
+}
+.logLabel {
+  font: 10px var(--font-mono);
+  padding: 14px 20px;
+  background: #293025;
+  color: #b4baaa;
+}
+.logs {
+  margin: 0;
+  min-height: 230px;
+  max-height: 450px;
+  overflow: auto;
+  background: #232921;
+  color: #c3c8b9;
+  padding: 18px 20px;
+  font: 11px/1.9 var(--font-mono);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.event {
+  font-size: 11px;
+  color: #8c7c63;
+  border-top: 1px solid #eee5d6;
+  padding: 12px 20px;
+}
+.event summary {
+  cursor: pointer;
+}
+.event pre {
+  max-height: 250px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 10px;
+}
+
+.steps > span.completeStep {
+  background: #e6ebde;
+  color: #5e7250;
+}
+@media (max-width: 1150px) {
+  .runStats {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+@media (max-width: 480px) {
+  .runPanel {
+    padding: 18px;
+  }
+  .steps {
+    gap: 5px;
+  }
+  .steps > span {
+    font-size: 9px;
+    padding: 8px 5px;
+  }
+}

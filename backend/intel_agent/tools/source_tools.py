@@ -15,9 +15,11 @@ from datetime import datetime, timezone
 from typing import Any
 
 from ..analysis import operator_signature, source_query_key, SourceQuerySpec
+from ..community_sources import COMMUNITY_SOURCE_NAMES, PAGE_PARAMS, TIME_PARAMS
 from ..engine.gaps import SOURCE_CHANNEL
 from ..sources import build_arxiv_search_query, search_source
 from .context import ToolContext
+from .constants import SOURCE_TOOL_NAMES
 
 _NVD_SCHEMA = {
     "type": "object",
@@ -84,13 +86,37 @@ _PARAM_KEYS: dict[str, tuple[str, ...]] = {
     "arxiv_api": ("arxiv_search_query", "arxiv_start"),
     "cisa_kev_json": ("cisa_keyword", "cisa_cve_ids"),
     "osv_dev_api": ("osv_ecosystem", "osv_package_name", "osv_purl", "osv_vuln_id"),
+    "github_issues": (*TIME_PARAMS, "github_page"),
+    "hackernews": (*TIME_PARAMS, "hn_page", "hn_tags"),
+    "discourse": (*TIME_PARAMS, "discourse_page"),
+    "reddit": (*TIME_PARAMS, "reddit_subreddit"),
 }
+
+
+def _community_schema(source: str) -> dict[str, Any]:
+    properties: dict[str, Any] = {
+        "query_text": {"type": "string", "description": "Focused LLM-security keywords."},
+        "candidate_id": {"type": "string", "description": "Approved adaptive candidate ID."},
+        "community_since": {"type": "string", "description": "ISO-8601 lower time bound."},
+        "community_until": {"type": "string", "description": "ISO-8601 upper time bound."},
+    }
+    if source in PAGE_PARAMS:
+        first = 0 if source == "hackernews" else 1
+        properties[PAGE_PARAMS[source]] = {"type": "integer", "minimum": first,
+                                          "description": f"Server page; first page is {first}."}
+    if source == "hackernews":
+        properties["hn_tags"] = {"type": "string", "enum": ["story", "comment"]}
+    if source == "reddit":
+        properties["reddit_subreddit"] = {"type": "string", "description": "Configured subreddit; omitted means all configured subreddits."}
+    return {"type": "object", "properties": properties, "required": ["query_text"]}
 
 
 def validate_adaptive_candidate_call(
     ctx: ToolContext, source_name: str, candidate_id: str
 ) -> str | None:
     """Apply the hook/handler shared adaptive-query safety checks."""
+    if source_name not in ctx.enabled_sources:
+        return "Source is disabled or requires configuration."
     if not ctx.adaptive:
         return None
     candidate = ctx.approved_candidates.get(candidate_id)
@@ -131,6 +157,10 @@ def candidate_exceeds_time_scope(
     since, until = ctx.source_time_scope(source_name)
     if since is None:
         return False
+    if source_name in COMMUNITY_SOURCE_NAMES:
+        start = _parse_time_operator(params.get("community_since"))
+        end = _parse_time_operator(params.get("community_until"))
+        return bool((start and start < since) or (until and end and end > until))
     if source_name == "nvd_cve_api":
         start = _parse_time_operator(params.get("nvd_pub_start_date"))
         end = _parse_time_operator(params.get("nvd_pub_end_date"))
@@ -160,10 +190,18 @@ def _parse_time_operator(value: Any) -> datetime | None:
 
 def _apply_time_scope(source_name: str, params: dict[str, Any], ctx: ToolContext) -> None:
     """Inject native date operators for sources that support them (incremental mode)."""
+    if source_name in PAGE_PARAMS:
+        params.setdefault(PAGE_PARAMS[source_name], 0 if source_name == "hackernews" else 1)
+    if source_name == "hackernews":
+        params.setdefault("hn_tags", "story")
     since, until = ctx.source_time_scope(source_name)
     if since is None:
         return
-    if source_name == "nvd_cve_api" and (ctx.adaptive or "nvd_pub_start_date" not in params):
+    if source_name in COMMUNITY_SOURCE_NAMES:
+        # The run window is authoritative in both adaptive and rules modes.
+        params["community_since"] = since.isoformat()
+        params["community_until"] = (until or datetime.now(timezone.utc)).isoformat()
+    elif source_name == "nvd_cve_api" and (ctx.adaptive or "nvd_pub_start_date" not in params):
         params["nvd_pub_start_date"] = since.strftime("%Y-%m-%dT%H:%M:%S.000")
         end = until if until is not None else datetime.now(timezone.utc)
         params["nvd_pub_end_date"] = end.strftime("%Y-%m-%dT%H:%M:%S.000")
@@ -184,6 +222,8 @@ def _apply_time_scope(source_name: str, params: dict[str, Any], ctx: ToolContext
 
 
 def _run_call(ctx: ToolContext, source_name: str, args: dict[str, Any]) -> dict[str, Any]:
+    if source_name not in ctx.enabled_sources or source_name not in _PARAM_KEYS:
+        return _text("Denied: source is disabled or requires configuration.")
     query_text = str(args.get("query_text") or "").strip()
     candidate_id = str(args.get("candidate_id") or "").strip() or None
     params = {
@@ -253,7 +293,13 @@ def _run_call(ctx: ToolContext, source_name: str, args: dict[str, Any]) -> dict[
         ctx.collected_items[item.item_id] = item
         new_ids.append(item.item_id)
 
-    has_more = source_name in {"nvd_cve_api", "arxiv_api"} and len(items) >= ctx.max_results_per_call
+    has_more = (
+        bool(getattr(stat, "has_more", False)) if source_name in COMMUNITY_SOURCE_NAMES
+        else source_name in {"nvd_cve_api", "arxiv_api"} and len(items) >= ctx.max_results_per_call
+    )
+    next_params = {}
+    if has_more and source_name in PAGE_PARAMS:
+        next_params = {**params, PAGE_PARAMS[source_name]: stat.next_page}
     call_id = f"{ctx.run_id}:call:{ctx.api_calls_used}"
     ctx.executed_calls.append(
         {
@@ -272,6 +318,7 @@ def _run_call(ctx: ToolContext, source_name: str, args: dict[str, Any]) -> dict[
             "in_scope_count": kept,
             "duplicate_count": duplicates,
             "has_more": has_more,
+            "next_params": next_params,
             "success": stat.success,
             "error_type": stat.error_type,
             "latency_ms": stat.latency_ms,
@@ -285,6 +332,7 @@ def _run_call(ctx: ToolContext, source_name: str, args: dict[str, Any]) -> dict[
     return _text(
         f"{source_name}: fetched {len(items)} raw / {kept} in-scope, "
         f"{duplicates} duplicate, {len(new_ids)} new, has_more={has_more}. "
+        f"next_params={_fmt(next_params)}. "
         f"operators={_fmt(params)}. Newest: {titles or '(none)'}"
     )
 
@@ -314,7 +362,32 @@ def build_source_tools(ctx: ToolContext) -> list[Any]:
     async def search_osv(args: dict[str, Any]) -> dict[str, Any]:
         return _run_call(ctx, "osv_dev_api", args)
 
-    return [search_nvd, search_arxiv, search_cisa_kev, search_osv]
+    @tool("search_hackernews", "Search HN stories or comments by date via Algolia. "
+          "Does not fetch external articles; title-only results are labelled. Evidence channel: community.",
+          _community_schema("hackernews"))
+    async def search_hackernews(args: dict[str, Any]) -> dict[str, Any]:
+        return _run_call(ctx, "hackernews", args)
+
+    @tool("search_hf_forum", "Search Hugging Face Discourse forum. Returns search excerpts, "
+          "not full posts; retains the complete server page. Evidence channel: community.",
+          _community_schema("discourse"))
+    async def search_hf_forum(args: dict[str, Any]) -> dict[str, Any]:
+        return _run_call(ctx, "discourse", args)
+
+    @tool("search_github_issues", "Search GitHub issue bodies within configured repositories/organizations. "
+          "Uses update time, excludes pull requests and does not fetch comments. Evidence channel: community.",
+          _community_schema("github_issues"))
+    async def search_github_issues(args: dict[str, Any]) -> dict[str, Any]:
+        return _run_call(ctx, "github_issues", args)
+
+    @tool("search_reddit", "Search configured subreddits using public RSS. A bounded feed, "
+          "not a full-history scan. Evidence channel: community.", _community_schema("reddit"))
+    async def search_reddit(args: dict[str, Any]) -> dict[str, Any]:
+        return _run_call(ctx, "reddit", args)
+
+    tools = [search_nvd, search_arxiv, search_cisa_kev, search_osv,
+             search_hackernews, search_hf_forum, search_github_issues, search_reddit]
+    return [entry for entry in tools if SOURCE_TOOL_NAMES[entry.name] in ctx.enabled_sources]
 
 
 def _fmt(params: dict[str, Any]) -> str:

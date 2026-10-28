@@ -136,25 +136,15 @@ def test_list_run_summaries_and_query_items(store):
     assert "nvd_cve_api" in store.distinct_sources()
 
 
-def test_save_and_list_knowledge_graphs(store):
-    store.save_run(_blackboard("run-kg", ["nvd:kg"]))
-    record = {
-        "item_id": "nvd:kg",
-        "run_id": "run-kg",
-        "status": "succeeded",
-        "source_name": "nvd_cve_api",
-        "triplet_count": 3,
-        "entity_count": 4,
-        "model": "glm-4.7",
-        "embedding_model": "embedding-3",
-    }
-    store.save_knowledge_graph(record, graph={"IE": {"triplets": []}})
-    rows = store.list_knowledge_graphs(limit=10)
-    assert len(rows) == 1
-    assert rows[0]["item_id"] == "nvd:kg"
-    assert "graph" not in rows[0]
-    full = store.load_knowledge_graph("nvd:kg")
-    assert full is not None and "graph" in full
-    item = store.get_item("nvd:kg")
-    assert item["kg_status"] == "succeeded"
-    assert store.knowledge_graph_count() == 1
+def test_large_run_uses_lossless_external_items(store, monkeypatch):
+    monkeypatch.setattr(mongo_store, "MAX_INLINE_RUN_BYTES", 500)
+    board = _blackboard("large-import", ["nvd:a", "nvd:b"])
+    board.raw_items[0].summary = "long summary\n" * 500
+    board.raw_items[0].raw_text = "raw content\n" * 1000
+    store.save_run(board)
+    persisted = store._runs.find_one({"_id": "large-import"})
+    assert persisted["items_external"] is True
+    assert persisted["blackboard"]["raw_items"] == []
+    assert store.load_latest_payload()["blackboard"]["raw_items"][0]["raw_text"] == board.raw_items[0].raw_text
+    assert store.load_all_blackboards()[0].raw_items[0].summary == board.raw_items[0].summary
+    assert store.distinct_item_count() == 2

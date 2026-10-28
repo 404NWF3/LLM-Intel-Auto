@@ -10,7 +10,7 @@ on top but the context is authoritative.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from ..schemas import (
@@ -22,6 +22,7 @@ from ..schemas import (
     SourceCheckpoint,
     SourceExecutionStat,
 )
+from ..sources import enabled_source_names
 
 
 @dataclass
@@ -49,6 +50,7 @@ class ToolContext:
     candidate_utilities: dict[str, float] = field(default_factory=dict)
     max_calls_this_round: int = 4
     extended_focus: bool = False
+    enabled_sources: set[str] = field(default_factory=enabled_source_names)
 
     # per-round outputs
     collected_items: dict[str, RawIntelItem] = field(default_factory=dict)
@@ -72,6 +74,10 @@ class ToolContext:
         if since is None:
             return True
         published = item.published_at
+        # GitHub searches by update time, including updates to older issues.
+        if item.source_name == "github_issues" and item.metadata.get("updated_at"):
+            published = datetime.fromisoformat(str(item.metadata["updated_at"]).replace("Z", "+00:00"))
+            published = published.replace(tzinfo=published.tzinfo or timezone.utc)
         if published is None:
             return True  # keep undated items; the source-side filter already narrowed
         if published < since:

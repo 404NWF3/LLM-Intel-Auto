@@ -8,7 +8,8 @@
 
 from __future__ import annotations
 
-import os
+from intel_agent.runtime.client import _setting
+
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 
@@ -23,7 +24,7 @@ _CHECKPOINTED_SOURCES = ("nvd_cve_api", "arxiv_api")
 
 
 def incremental_overlap_hours() -> int:
-    raw = os.getenv("INTEL_INCREMENTAL_OVERLAP_HOURS", str(INCREMENTAL_OVERLAP_HOURS))
+    raw = _setting("INTEL_INCREMENTAL_OVERLAP_HOURS", str(INCREMENTAL_OVERLAP_HOURS))
     try:
         return max(0, int(raw))
     except ValueError:

@@ -1,4 +1,4 @@
-"""Registered intelligence source clients: NVD, arXiv, CISA KEV, OSV.dev.
+"""Registered intelligence clients for advisories, papers and community sources.
 
 Self-contained port of the legacy ``registered_source_tools`` HTTP/parse layer
 with the CrewAI ``BaseTool`` wrapper removed (the agentic loop calls these plain
@@ -8,8 +8,9 @@ the previously bare urllib calls.
 
 from __future__ import annotations
 
+from intel_agent.runtime.client import _setting
+
 import json
-import os
 import re
 import time
 import xml.etree.ElementTree as ET
@@ -20,7 +21,8 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
-from .schemas import ApprovedSource, RawIntelItem, SourceExecutionStat
+from .schemas import ApprovedSource, RawIntelItem, SourceExecutionStat, REGISTERED_SOURCE_NAMES
+from .community_sources import COMMUNITY_SOURCE_NAMES, registered_community_sources, search_community_source
 from .topics import detect_topics, tokenize
 
 NVD_CVE_API_URL = "https://services.nvd.nist.gov/rest/json/cves/2.0"
@@ -31,7 +33,7 @@ CISA_KEV_JSON_URL = (
 OSV_QUERY_URL = "https://api.osv.dev/v1/query"
 OSV_VULN_URL = "https://api.osv.dev/v1/vulns"
 
-REGISTERED_API_SOURCE_NAMES = {"nvd_cve_api", "arxiv_api", "cisa_kev_json", "osv_dev_api"}
+REGISTERED_API_SOURCE_NAMES = set(REGISTERED_SOURCE_NAMES)
 USER_AGENT = "intel-agent/0.1"
 
 ATOM_NAMESPACE = {"atom": "http://www.w3.org/2005/Atom"}
@@ -113,7 +115,11 @@ def default_registered_api_sources() -> list[ApprovedSource]:
             notes="OSV.dev API for open source ecosystem vulnerability intelligence.",
             metadata={"best_for": ["GitHub Advisory", "PyPI", "RustSec", "npm", "Go"]},
         ),
-    ]
+    ] + registered_community_sources()
+
+
+def enabled_source_names() -> set[str]:
+    return {source.source_name for source in default_registered_api_sources() if source.enabled}
 
 
 # --------------------------------------------------------------------- dispatch
@@ -131,6 +137,7 @@ def search_source(
     start = time.perf_counter()
     topics = target_topics or []
     try:
+        page_info: dict[str, Any] = {}
         if source_name == "nvd_cve_api":
             items = search_nvd_cve_api(
                 query_text, max_results, timeout_seconds,
@@ -166,11 +173,17 @@ def search_source(
                 purl=params.get("osv_purl"),
                 vuln_id=params.get("osv_vuln_id"),
             )
+        elif source_name in COMMUNITY_SOURCE_NAMES:
+            if source_name not in enabled_source_names():
+                raise ValueError(f"{source_name} is disabled or requires source scope configuration")
+            items, page_info = search_community_source(
+                source_name, query_text, max_results, timeout_seconds, **params,
+            )
         else:
-            items = []
+            raise ValueError(f"Unregistered intelligence source: {source_name}")
         stat = SourceExecutionStat(
             source_name=source_name, query_count=1, result_count=len(items),
-            success=True, latency_ms=_elapsed_ms(start), notes="ok",
+            success=True, latency_ms=_elapsed_ms(start), notes="ok", **page_info,
         )
         return items, stat
     except (HTTPError, URLError, TimeoutError, RemoteDisconnected, ConnectionError,
@@ -357,7 +370,9 @@ def parse_arxiv_items(raw_xml: str) -> list[RawIntelItem]:
     for entry in root.findall("atom:entry", ATOM_NAMESPACE):
         item_id = _node_text(entry, "atom:id")
         title = _clean_text(_node_text(entry, "atom:title"))
-        summary = _clean_text(_node_text(entry, "atom:summary"))
+        # Preserve the entire source abstract, including paragraph/line breaks.
+        # Only titles are normalized/shortened for display.
+        summary = _node_text(entry, "atom:summary").strip()
         if title.lower() == "error":
             continue
         topics = detect_topics(f"{title} {summary}")
@@ -482,13 +497,14 @@ def parse_osv_vulnerability(data: dict[str, Any], query_text: str = "") -> list[
 def _fetch_json(
     url: str, timeout_seconds: int, method: str = "GET",
     payload: dict[str, Any] | None = None, retries: int = 2,
+    *, headers: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     data = None
-    headers = {"Accept": "application/json", "User-Agent": USER_AGENT}
+    headers = {"Accept": "application/json", "User-Agent": USER_AGENT, **(headers or {})}
     if payload is not None:
         data = json.dumps(payload).encode("utf-8")
         headers["Content-Type"] = "application/json"
-    nvd_key = os.getenv("NVD_API_KEY")
+    nvd_key = _setting("NVD_API_KEY")
     if nvd_key and url.startswith(NVD_CVE_API_URL):
         headers["apiKey"] = nvd_key
     raw = _request_with_retry(url, headers, data, method, timeout_seconds, retries)
